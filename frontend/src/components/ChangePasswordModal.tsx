@@ -2,10 +2,23 @@ import { type FormEvent, useState } from 'react'
 
 import { changePassword } from '../api/auth'
 import { updateUser } from '../api/users'
-import { getErrorMessage } from '../utils/format'
+import { Field } from './Field'
+import { ErrorAlert } from './ErrorAlert'
 import { PasswordField } from './PasswordField'
+import { getErrorMessage } from '../utils/format'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 interface ChangePasswordModalProps {
+  open: boolean
   onClose: () => void
   onChanged: () => Promise<void>
   userId?: number
@@ -14,6 +27,7 @@ interface ChangePasswordModalProps {
 }
 
 export function ChangePasswordModal({
+  open,
   onClose,
   onChanged,
   userId,
@@ -63,69 +77,67 @@ export function ChangePasswordModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <form
-        className="card modal-card"
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={(event) => void handleSubmit(event)}
-      >
-        <h2>{canEditUsername ? 'Minha conta' : 'Alterar senha'}</h2>
-        <p className="muted">
-          {canEditUsername
-            ? 'Altere seu usuário de login e/ou a senha. Depois de salvar, entre de novo.'
-            : 'Depois de salvar, você entra de novo com a senha nova.'}
-        </p>
-        {error && <div className="alert">{error}</div>}
-        {canEditUsername && (
-          <label>
-            Usuário de login
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
-              minLength={3}
-              required
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
+      <DialogContent showCloseButton={false} className="gap-3">
+        <form className="grid gap-3" onSubmit={(event) => void handleSubmit(event)}>
+          <DialogHeader>
+            <DialogTitle className="text-[1.05rem] font-semibold">
+              {canEditUsername ? 'Minha conta' : 'Alterar senha'}
+            </DialogTitle>
+            <DialogDescription>
+              {canEditUsername
+                ? 'Altere seu usuário de login e/ou a senha. Depois de salvar, entre de novo.'
+                : 'Depois de salvar, você entra de novo com a senha nova.'}
+            </DialogDescription>
+          </DialogHeader>
+          {error && <ErrorAlert>{error}</ErrorAlert>}
+          {canEditUsername && (
+            <Field label="Usuário de login">
+              <Input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                minLength={3}
+                required
+              />
+            </Field>
+          )}
+          <Field label={`Senha atual${canEditUsername ? ' (se for mudar a senha)' : ''}`}>
+            <PasswordField
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+              required={!canEditUsername}
             />
-          </label>
-        )}
-        <label>
-          Senha atual{canEditUsername ? ' (se for mudar a senha)' : ''}
-          <PasswordField
-            value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
-            autoComplete="current-password"
-            required={!canEditUsername}
-          />
-        </label>
-        <label>
-          Nova senha{canEditUsername ? ' (opcional)' : ''}
-          <PasswordField
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
-            autoComplete="new-password"
-            minLength={8}
-            required={!canEditUsername}
-          />
-        </label>
-        <label>
-          Confirmar nova senha
-          <PasswordField
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            autoComplete="new-password"
-            minLength={8}
-            required={!canEditUsername}
-          />
-        </label>
-        <div className="inline-form">
-          <button className="button primary" type="submit" disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar'}
-          </button>
-          <button className="button ghost" type="button" onClick={onClose} disabled={saving}>
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
+          </Field>
+          <Field label={`Nova senha${canEditUsername ? ' (opcional)' : ''}`}>
+            <PasswordField
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required={!canEditUsername}
+            />
+          </Field>
+          <Field label="Confirmar nova senha">
+            <PasswordField
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required={!canEditUsername}
+            />
+          </Field>
+          <DialogFooter className="mx-0 mb-0 flex-row justify-start gap-2.5 rounded-none border-0 bg-transparent p-0">
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

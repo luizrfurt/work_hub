@@ -1,9 +1,14 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { Field } from '../../components/Field'
 import { PasswordField } from '../../components/PasswordField'
 import { useAuth } from '../../contexts/AuthContext'
 import { getErrorMessage, homePath } from '../../utils/format'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -28,37 +33,41 @@ export function LoginPage() {
   }
 
   return (
-    <div className="wrap narrow">
-      <header className="hero">
-        <h1>WorkHub</h1>
-        <p className="sub">Comunicação e tarefas da equipe, em um só lugar.</p>
+    <div className="mx-auto max-w-[420px] px-[18px] py-7 pb-[60px]">
+      <header className="mb-4">
+        <h1 className="mb-2 text-[28px] font-bold tracking-[-0.02em]">WorkHub</h1>
+        <p className="leading-[1.45] text-muted-foreground">
+          Comunicação e tarefas da equipe, em um só lugar.
+        </p>
       </header>
-      <form className="card login-form" onSubmit={(event) => void handleSubmit(event)}>
-        {error && <div className="alert">{error}</div>}
-        <label>
-          Usuário
-          <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoComplete="username"
-            placeholder="seu.usuario"
-            required
-          />
-        </label>
-        <label>
-          Senha
-          <PasswordField
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            placeholder="••••••••"
-            required
-          />
-        </label>
-        <button className="button primary" type="submit" disabled={submitting}>
-          {submitting ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
+      <Card>
+        <CardContent>
+          <form className="grid gap-[1.15rem]" onSubmit={(event) => void handleSubmit(event)}>
+            {error && <ErrorAlert>{error}</ErrorAlert>}
+            <Field label="Usuário">
+              <Input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                placeholder="seu.usuario"
+                required
+              />
+            </Field>
+            <Field label="Senha">
+              <PasswordField
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                required
+              />
+            </Field>
+            <Button className="mt-[0.35rem] w-full" type="submit" disabled={submitting}>
+              {submitting ? 'Entrando...' : 'Entrar'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

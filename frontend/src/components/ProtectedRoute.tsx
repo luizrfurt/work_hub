@@ -7,7 +7,7 @@ export function ProtectedRoute() {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return <div className="page-center muted">Carregando...</div>
+    return <div className="grid min-h-svh place-items-center text-muted-foreground">Carregando...</div>
   }
   if (!user) {
     return <Navigate to="/login" replace />
@@ -19,7 +19,7 @@ export function GuestRoute() {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return <div className="page-center muted">Carregando...</div>
+    return <div className="grid min-h-svh place-items-center text-muted-foreground">Carregando...</div>
   }
   if (user) {
     return <Navigate to={homePath(user.role)} replace />
@@ -31,7 +31,7 @@ export function AdminRoute() {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return <div className="page-center muted">Carregando...</div>
+    return <div className="grid min-h-svh place-items-center text-muted-foreground">Carregando...</div>
   }
   if (!user) {
     return <Navigate to="/login" replace />

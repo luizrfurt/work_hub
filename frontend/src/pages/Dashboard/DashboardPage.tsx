@@ -2,10 +2,18 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { createProject, listProjects } from '../../api/projects'
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { Field } from '../../components/Field'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationsContext'
 import type { Project } from '../../types'
 import { getErrorMessage } from '../../utils/format'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -50,71 +58,90 @@ export function DashboardPage() {
 
   return (
     <section>
-      <div className="page-header">
+      <div className="mb-[1.2rem] flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1>Projetos</h1>
-          <p className="muted">
+          <h1 className="mb-1 text-[1.75rem] font-bold tracking-[-0.02em]">Projetos</h1>
+          <p className="text-muted-foreground">
             {user?.role === 'ADMIN'
               ? 'Abra um projeto para conversar e acompanhar tarefas, ou use Dashboard para a visão geral.'
               : 'Escolha um projeto para conversar e acompanhar as tarefas.'}
           </p>
         </div>
         {user?.role === 'ADMIN' && (
-          <button className="button primary" type="button" onClick={() => setShowForm((value) => !value)}>
+          <Button type="button" onClick={() => setShowForm((value) => !value)}>
             + Novo projeto
-          </button>
+          </Button>
         )}
       </div>
 
-      {error && <div className="alert">{error}</div>}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       {showForm && user?.role === 'ADMIN' && (
-        <form className="card form-card" onSubmit={(event) => void handleCreate(event)}>
-          <h2>Novo projeto</h2>
-          <label>
-            Nome
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
-          </label>
-          <label>
-            Descrição
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
-          </label>
-          <button className="button primary" type="submit" disabled={creating}>
-            {creating ? 'Criando...' : 'Criar projeto'}
-          </button>
-        </form>
+        <Card className="mb-4">
+          <CardContent>
+            <form className="grid gap-[0.42rem]" onSubmit={(event) => void handleCreate(event)}>
+              <h2 className="mb-2 text-[1.05rem] font-semibold">Novo projeto</h2>
+              <Field label="Nome">
+                <Input value={name} onChange={(event) => setName(event.target.value)} required />
+              </Field>
+              <Field label="Descrição" className="mt-2">
+                <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+              </Field>
+              <Button className="mt-3 w-fit" type="submit" disabled={creating}>
+                {creating ? 'Criando...' : 'Criar projeto'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="project-grid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-4">
         {projects.map((project) => {
           const unread = unreadFor(project.id)
           return (
-            <Link key={project.id} to={`/projects/${project.id}`} className="card project-card">
-              {unread > 0 && (
-                <span className="project-unread">
-                  {unread > 9 ? '9+' : unread} {unread === 1 ? 'nova' : 'novas'}
-                </span>
-              )}
-              <span className="project-card-mark" aria-hidden="true">
-                {project.name.slice(0, 1).toUpperCase()}
-              </span>
-              <h2>{project.name}</h2>
-              <p className="muted">{project.description || 'Sem descrição'}</p>
-              <span className="chip">
-                {project.member_count} {project.member_count === 1 ? 'membro' : 'membros'}
-              </span>
+            <Link key={project.id} to={`/projects/${project.id}`}>
+              <Card
+                className={cn(
+                  'relative grid min-h-[168px] content-start transition-[border-color,background] duration-150',
+                  'hover:border-[rgba(110,168,255,0.35)] hover:bg-[linear-gradient(180deg,rgba(110,168,255,0.08),transparent_40%),var(--card)]',
+                )}
+              >
+                <CardContent>
+                  {unread > 0 && (
+                    <Badge className="absolute top-[0.85rem] right-[0.9rem] h-auto min-h-[1.35rem] rounded-full bg-destructive px-[0.55rem] py-[0.22rem] text-[0.72rem] font-extrabold text-white">
+                      {unread > 9 ? '9+' : unread} {unread === 1 ? 'nova' : 'novas'}
+                    </Badge>
+                  )}
+                  <span
+                    className="mb-[0.7rem] grid size-[38px] place-items-center rounded-[10px] border border-[rgba(110,168,255,0.22)] bg-[rgba(110,168,255,0.14)] font-extrabold text-primary"
+                    aria-hidden="true"
+                  >
+                    {project.name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <h2 className="text-[1.05rem] font-semibold">{project.name}</h2>
+                  <p className="text-muted-foreground">{project.description || 'Sem descrição'}</p>
+                  <Badge
+                    variant="secondary"
+                    className="mt-[0.85rem] w-fit rounded-full border border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.12)] px-[0.7rem] py-[0.22rem] text-[0.78rem] font-semibold text-primary"
+                  >
+                    {project.member_count} {project.member_count === 1 ? 'membro' : 'membros'}
+                  </Badge>
+                </CardContent>
+              </Card>
             </Link>
           )
         })}
         {projects.length === 0 && (
-          <div className="empty-state card">
-            <strong>Nenhum projeto por aqui ainda</strong>
-            <p className="muted">
-              {user?.role === 'ADMIN'
-                ? 'Crie o primeiro projeto para começar a conversar e organizar as tarefas.'
-                : 'Peça a um administrador para incluir você em um projeto.'}
-            </p>
-          </div>
+          <Card className="col-span-full px-3 py-7 text-center text-muted-foreground">
+            <CardContent>
+              <strong className="text-foreground">Nenhum projeto por aqui ainda</strong>
+              <p className="text-muted-foreground">
+                {user?.role === 'ADMIN'
+                  ? 'Crie o primeiro projeto para começar a conversar e organizar as tarefas.'
+                  : 'Peça a um administrador para incluir você em um projeto.'}
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </section>

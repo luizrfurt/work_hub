@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom'
 
 import { addMember, getProject, listMembers, removeMember } from '../../api/projects'
 import { listUsers } from '../../api/users'
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { UserAvatar } from '../../components/UserAvatar'
 import { useAuth } from '../../contexts/AuthContext'
 import { ProjectRealtimeProvider } from '../../contexts/ProjectRealtimeContext'
 import { useNotifications } from '../../contexts/NotificationsContext'
@@ -10,6 +12,17 @@ import type { Project, ProjectMember, User } from '../../types'
 import { getErrorMessage } from '../../utils/format'
 import { ChatTab } from './ChatTab'
 import { TodoTab } from './TodoTab'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type Tab = 'chat' | 'tasks' | 'members'
 
@@ -76,7 +89,7 @@ export function ProjectPage() {
   }
 
   if (!projectId) {
-    return <p className="muted">Projeto inválido.</p>
+    return <p className="text-muted-foreground">Projeto inválido.</p>
   }
 
   const availableUsers = users.filter(
@@ -139,95 +152,126 @@ function ProjectWorkspace({
     return () => setActiveView(null, null)
   }, [projectId, currentTab, setActiveView, unreadCount])
 
+  const tabTriggerClass =
+    'group rounded-full px-4 py-2 font-semibold text-muted-foreground data-active:border data-active:border-[rgba(110,168,255,0.28)] data-active:bg-[rgba(110,168,255,0.16)] data-active:text-foreground dark:data-active:bg-[rgba(110,168,255,0.16)]'
+
   return (
-    <section className="project-workspace">
-      <div className="project-chrome">
-        <div className="page-header project-header">
+    <Tabs
+      value={currentTab}
+      onValueChange={(value) => setTab(value as Tab)}
+      className="project-workspace flex min-h-0 flex-1 flex-col gap-0"
+    >
+      <div className="shrink-0">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-4 max-[800px]:flex-col max-[800px]:items-start">
           <div>
-            <p className="eyebrow">Projeto</p>
-            <h1>{project?.name ?? 'Carregando...'}</h1>
+            <p className="mb-1 text-[0.72rem] font-bold tracking-[0.12em] text-primary uppercase">
+              Projeto
+            </p>
+            <h1 className="text-[1.75rem] font-bold tracking-[-0.02em]">
+              {project?.name ?? 'Carregando...'}
+            </h1>
           </div>
-          <div className="tabs">
-            <button
-              type="button"
-              className={currentTab === 'chat' ? 'tab active' : 'tab'}
-              onClick={() => setTab('chat')}
-            >
+          <TabsList className="h-auto w-fit max-w-full shrink-0 rounded-full border border-border bg-black/22 p-[0.3rem] max-[800px]:w-full max-[800px]:overflow-x-auto">
+            <TabsTrigger value="chat" className={tabTriggerClass}>
               Conversa
               {unreadCount > 0 && (
-                <span className="tab-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                <Badge className="h-[1.15rem] min-w-[1.15rem] rounded-full bg-destructive px-[0.35rem] text-[0.68rem] font-extrabold text-white group-data-active:bg-primary group-data-active:text-primary-foreground">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
               )}
-            </button>
-            <button
-              type="button"
-              className={currentTab === 'tasks' ? 'tab active' : 'tab'}
-              onClick={() => setTab('tasks')}
-            >
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className={tabTriggerClass}>
               Tarefas
-            </button>
+            </TabsTrigger>
             {isAdmin && (
-              <button
-                type="button"
-                className={currentTab === 'members' ? 'tab active' : 'tab'}
-                onClick={() => setTab('members')}
-              >
+              <TabsTrigger value="members" className={tabTriggerClass}>
                 Membros
-              </button>
+              </TabsTrigger>
             )}
-          </div>
+          </TabsList>
         </div>
-        {project?.description && <p className="project-description muted">{project.description}</p>}
-        {error && <div className="alert">{error}</div>}
-      </div>
-
-      <div className="project-body">
-        <div className="project-pane" hidden={currentTab !== 'chat'}>
-          <ChatTab projectId={projectId} />
-        </div>
-        <div className="project-pane" hidden={currentTab !== 'tasks'}>
-          <TodoTab projectId={projectId} members={members} />
-        </div>
-        {isAdmin && (
-          <div className="project-pane" hidden={currentTab !== 'members'}>
-          <div className="card members-box">
-            <h3>Integrantes do projeto</h3>
-            <p className="muted">Quem participa desta equipe e pode acessar conversa e tarefas.</p>
-            <ul className="member-list">
-              {members.map((member) => (
-                <li key={member.user_id}>
-                  <span className="member-identity">
-                    <span className="avatar sm" aria-hidden="true">
-                      {member.name.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span>{member.name}</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="button ghost small"
-                    onClick={() => void onRemove(member.user_id)}
-                  >
-                    Remover
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <form className="inline-form" onSubmit={(event) => void onAddMember(event)}>
-              <select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>
-                <option value="">Selecionar usuário</option>
-                {availableUsers.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} ({item.username})
-                  </option>
-                ))}
-              </select>
-              <button className="button primary" type="submit" disabled={!selectedUserId}>
-                Adicionar
-              </button>
-            </form>
-          </div>
-        </div>
+        {project?.description && (
+          <p className="mb-3 text-muted-foreground">{project.description}</p>
         )}
+        {error && <ErrorAlert>{error}</ErrorAlert>}
       </div>
-    </section>
+        <TabsContent
+          value="chat"
+          forceMount
+          hidden={currentTab !== 'chat'}
+          className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+        >
+          <ChatTab projectId={projectId} />
+        </TabsContent>
+        <TabsContent
+          value="tasks"
+          forceMount
+          hidden={currentTab !== 'tasks'}
+          className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+        >
+          <TodoTab projectId={projectId} members={members} />
+        </TabsContent>
+        {isAdmin && (
+          <TabsContent
+            value="members"
+            forceMount
+            hidden={currentTab !== 'members'}
+            className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          >
+            <Card className="flex min-h-0 flex-1 flex-col">
+              <CardContent className="flex min-h-0 flex-1 flex-col">
+                <h3 className="shrink-0 text-[1.05rem] font-semibold">Integrantes do projeto</h3>
+                <p className="shrink-0 text-muted-foreground">
+                  Quem participa desta equipe e pode acessar conversa e tarefas.
+                </p>
+                <ul className="my-[0.7rem] mb-4 min-h-0 flex-1 list-none overflow-y-auto p-0">
+                  {members.map((member) => (
+                    <li
+                      key={member.user_id}
+                      className="flex items-center justify-between gap-3 border-b border-border py-[0.65rem]"
+                    >
+                      <span className="flex items-center gap-[0.65rem]">
+                        <UserAvatar label={member.name.slice(0, 1).toUpperCase()} size="sm" />
+                        <span>{member.name}</span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void onRemove(member.user_id)}
+                      >
+                        Remover
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <form
+                  className="flex shrink-0 gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1"
+                  onSubmit={(event) => void onAddMember(event)}
+                >
+                  <Select
+                    value={selectedUserId || undefined}
+                    onValueChange={setSelectedUserId}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecionar usuário" />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      {availableUsers.map((item) => (
+                        <SelectItem key={item.id} value={String(item.id)}>
+                          {item.name} ({item.username})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="submit" disabled={!selectedUserId}>
+                    Adicionar
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+    </Tabs>
   )
 }

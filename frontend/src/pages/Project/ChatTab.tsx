@@ -2,12 +2,17 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { listMessages, sendMessage, uploadAttachment } from '../../api/messages'
 import { attachmentUrl } from '../../api/client'
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { UserAvatar } from '../../components/UserAvatar'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationsContext'
 import { useProjectRealtime, useRealtimeMessages } from '../../contexts/ProjectRealtimeContext'
 import type { Message } from '../../types'
 import { formatDateTime, getErrorMessage } from '../../utils/format'
 import { getAccessToken } from '../../utils/storage'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 interface ChatTabProps {
   projectId: string
@@ -108,65 +113,81 @@ export function ChatTab({ projectId }: ChatTabProps) {
   }
 
   return (
-    <div className="chat-tab">
-      {error && <div className="alert">{error}</div>}
-      <div className="chat-panel">
-      <div className="chat-history" ref={historyRef}>
-        {messages.map((message) => (
-          <article
-            key={message.id}
-            className={`chat-message ${message.user_id === user?.id ? 'mine' : ''}`}
-          >
-            <span className="avatar sm" aria-hidden="true">
-              {message.author_name.slice(0, 1).toUpperCase()}
-            </span>
-            <div className="chat-bubble">
-              <header className="chat-meta">
-                <strong>{message.author_name}</strong>
-                <time className="muted">{formatDateTime(message.created_at)}</time>
-              </header>
-              {message.content && <p>{message.content}</p>}
-              {message.attachments.map((attachment) => (
-                <AttachmentView
-                  key={attachment.id}
-                  projectId={projectId}
-                  attachmentId={attachment.id}
-                  mimeType={attachment.mime_type}
-                  name={attachment.original_name}
-                />
-              ))}
-            </div>
-          </article>
-        ))}
+    <div className="flex min-h-0 flex-1 flex-col gap-[0.6rem]">
+      {error && <ErrorAlert>{error}</ErrorAlert>}
+      <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] overflow-hidden rounded-[14px] border border-border bg-card">
+        <div className="flex flex-col gap-[0.85rem] overflow-y-auto bg-black/12 p-[1.1rem]" ref={historyRef}>
+          {messages.map((message) => {
+            const mine = message.user_id === user?.id
+            return (
+              <article
+                key={message.id}
+                className={cn(
+                  'flex max-w-[74%] items-end gap-[0.6rem] max-[800px]:max-w-[94%]',
+                  mine && 'flex-row-reverse self-end',
+                )}
+              >
+                <UserAvatar label={message.author_name.slice(0, 1).toUpperCase()} size="sm" />
+                <div
+                  className={cn(
+                    'rounded-[14px] border border-border bg-white/4 px-[0.85rem] py-[0.7rem]',
+                    mine
+                      ? 'rounded-br-[6px] border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.14)]'
+                      : 'rounded-bl-[6px]',
+                  )}
+                >
+                  <header className="mb-[0.2rem] flex items-baseline justify-between gap-3">
+                    <strong>{message.author_name}</strong>
+                    <time className="whitespace-nowrap text-[0.72rem] text-muted-foreground">
+                      {formatDateTime(message.created_at)}
+                    </time>
+                  </header>
+                  {message.content && <p>{message.content}</p>}
+                  {message.attachments.map((attachment) => (
+                    <AttachmentView
+                      key={attachment.id}
+                      projectId={projectId}
+                      attachmentId={attachment.id}
+                      mimeType={attachment.mime_type}
+                      name={attachment.original_name}
+                    />
+                  ))}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+        <form
+          className="flex gap-[0.55rem] border-t border-border bg-[rgba(12,18,36,0.85)] p-[0.9rem] max-[800px]:grid max-[800px]:grid-cols-1"
+          onSubmit={(event) => void handleSend(event)}
+        >
+          <Input
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder="Escreva uma mensagem"
+            aria-label="Mensagem"
+          />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,text/plain,.jpg,.jpeg,.png,.webp,.txt"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) {
+                void handleFile(file)
+                event.target.value = ''
+              }
+            }}
+          />
+          <Button variant="ghost" type="button" onClick={() => fileRef.current?.click()}>
+            Anexar
+          </Button>
+          <Button type="submit" disabled={sending}>
+            Enviar
+          </Button>
+        </form>
       </div>
-      <form className="chat-composer" onSubmit={(event) => void handleSend(event)}>
-        <input
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          placeholder="Escreva uma mensagem"
-          aria-label="Mensagem"
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,text/plain,.jpg,.jpeg,.png,.webp,.txt"
-          hidden
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) {
-              void handleFile(file)
-              event.target.value = ''
-            }
-          }}
-        />
-        <button className="button ghost" type="button" onClick={() => fileRef.current?.click()}>
-          Anexar
-        </button>
-        <button className="button primary" type="submit" disabled={sending}>
-          Enviar
-        </button>
-      </form>
-    </div>
     </div>
   )
 }
@@ -213,14 +234,18 @@ function AttachmentView({
   }, [projectId, attachmentId])
 
   if (mimeType.startsWith('image/')) {
-    return objectUrl ? <img className="chat-image" src={objectUrl} alt={name} /> : <p className="muted">{name}</p>
+    return objectUrl ? (
+      <img className="my-[0.45rem] block max-w-[260px] rounded-[10px]" src={objectUrl} alt={name} />
+    ) : (
+      <p className="text-muted-foreground">{name}</p>
+    )
   }
 
   return objectUrl ? (
-    <a className="file-link" href={objectUrl} download={name}>
+    <a className="text-primary underline" href={objectUrl} download={name}>
       {name}
     </a>
   ) : (
-    <span className="muted">{name}</span>
+    <span className="text-muted-foreground">{name}</span>
   )
 }

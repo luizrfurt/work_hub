@@ -1,9 +1,24 @@
 import { type DragEvent, type FormEvent, useCallback, useEffect, useState } from 'react'
 
 import { createTask, listTasks, updateTask } from '../../api/tasks'
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { Field } from '../../components/Field'
 import { useRealtimeTasks } from '../../contexts/ProjectRealtimeContext'
 import type { ProjectMember, Task, TaskStatus } from '../../types'
 import { formatDate, getErrorMessage, statusLabel } from '../../utils/format'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 interface TodoTabProps {
   projectId: string
@@ -170,17 +185,23 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
   }
 
   return (
-    <div className="todo-tab">
-      {error && <div className="alert">{error}</div>}
-      <p className="hint">Arraste o card para cima, para baixo ou para outra coluna.</p>
+    <div className="flex min-h-0 flex-1 flex-col gap-[0.55rem]">
+      {error && <ErrorAlert>{error}</ErrorAlert>}
+      <p className="mb-0 shrink-0 text-[0.92rem] leading-[1.45] text-muted-foreground">
+        Arraste o card para cima, para baixo ou para outra coluna.
+      </p>
 
-      <div className="kanban">
+      <div className="grid min-h-0 flex-1 grid-cols-3 gap-4 max-[800px]:grid-cols-1 max-[800px]:overflow-y-auto">
         {COLUMNS.map((status) => {
           const column = columnTasks(status)
           return (
             <section
               key={status}
-              className={`kanban-column ${overStatus === status ? 'drag-over' : ''}`}
+              className={cn(
+                'flex min-h-0 flex-col overflow-hidden rounded-xl border border-dashed border-transparent bg-black/18 p-[0.85rem] shadow-[inset_0_0_0_1px_var(--border)] transition-[border-color,background] duration-150 max-[800px]:min-h-[240px]',
+                overStatus === status &&
+                  'border-[rgba(110,168,255,0.55)] bg-[rgba(110,168,255,0.08)]',
+              )}
               onDragOver={(event) => {
                 event.preventDefault()
                 setOverStatus(status)
@@ -201,9 +222,14 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 setDraggingId(null)
               }}
             >
-              <h3>
+              <h3 className="mb-3 flex shrink-0 items-center justify-between gap-2 text-[0.95rem] font-semibold">
                 {statusLabel(status)}
-                <span className="count-pill">{column.length}</span>
+                <Badge
+                  variant="outline"
+                  className="h-6 min-w-6 rounded-full border-border bg-white/6 px-1.5 text-foreground"
+                >
+                  {column.length}
+                </Badge>
               </h3>
               {creatingIn === status && (
                 <ColumnComposer
@@ -214,15 +240,16 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 />
               )}
               {creatingIn !== status && (
-                <button
+                <Button
                   type="button"
-                  className="button ghost add-card"
+                  variant="ghost"
+                  className="mb-[0.7rem] w-full shrink-0 border-dashed text-muted-foreground"
                   onClick={() => setCreatingIn(status)}
                 >
                   + Adicionar cartão
-                </button>
+                </Button>
               )}
-              <div className="kanban-cards">
+              <div className="min-h-0 flex-1 overflow-y-auto max-[800px]:overflow-visible">
                 {column.map((task) => (
                   <TaskCard
                     key={task.id}
@@ -313,53 +340,57 @@ function ColumnComposer({
   }
 
   return (
-    <form className="card composer-card" onSubmit={(event) => void handleSubmit(event)}>
-      <label>
-        Título
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Nome da tarefa"
-          autoFocus
-          required
-        />
-      </label>
-      <label>
-        Responsável
-        <select
-          value={assignedUserId}
-          onChange={(event) => setAssignedUserId(Number(event.target.value))}
-          required
-        >
-          {members.map((member) => (
-            <option key={member.user_id} value={member.user_id}>
-              {member.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Prazo
-        <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-      </label>
-      <label>
-        Descrição
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          rows={2}
-          placeholder="Opcional"
-        />
-      </label>
-      <div className="inline-form">
-        <button className="button primary" type="submit" disabled={saving || members.length === 0}>
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
-        <button className="button ghost" type="button" onClick={onCancel}>
-          Cancelar
-        </button>
-      </div>
-    </form>
+    <Card className="mb-[0.6rem] shrink-0">
+      <CardContent>
+        <form className="grid gap-[0.55rem]" onSubmit={(event) => void handleSubmit(event)}>
+          <Field label="Título">
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Nome da tarefa"
+              autoFocus
+              required
+            />
+          </Field>
+          <Field label="Responsável">
+            <Select
+              value={assignedUserId === '' ? undefined : String(assignedUserId)}
+              onValueChange={(value) => setAssignedUserId(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {members.map((member) => (
+                  <SelectItem key={member.user_id} value={String(member.user_id)}>
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Prazo">
+            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          </Field>
+          <Field label="Descrição">
+            <Textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={2}
+              placeholder="Opcional"
+            />
+          </Field>
+          <div className="flex gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1">
+            <Button type="submit" disabled={saving || members.length === 0}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -407,69 +438,83 @@ function TaskCard({
 
   if (editing) {
     return (
-      <article className="card task-card">
-        <label>
-          Título
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <label>
-          Descrição
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={2} />
-        </label>
-        <label>
-          Prazo
-          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-        </label>
-        <label>
-          Responsável
-          <select value={assignedUserId} onChange={(event) => setAssignedUserId(Number(event.target.value))}>
-            {members.map((member) => (
-              <option key={member.user_id} value={member.user_id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>
-            {COLUMNS.map((option) => (
-              <option key={option} value={option}>
-                {statusLabel(option)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="inline-form">
-          <button
-            className="button primary"
-            type="button"
-            onClick={() => {
-              onSave({
-                title,
-                description,
-                due_date: dueDate,
-                assigned_user_id: assignedUserId,
-                status,
-              })
-              setEditing(false)
-            }}
-          >
-            Salvar
-          </button>
-          <button className="button ghost" type="button" onClick={() => setEditing(false)}>
-            Cancelar
-          </button>
-        </div>
-      </article>
+      <Card className="mb-3">
+        <CardContent>
+          <div className="grid gap-[0.45rem]">
+            <Field label="Título">
+              <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+            </Field>
+            <Field label="Descrição">
+              <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={2} />
+            </Field>
+            <Field label="Prazo">
+              <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            </Field>
+            <Field label="Responsável">
+              <Select
+                value={String(assignedUserId)}
+                onValueChange={(value) => setAssignedUserId(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {members.map((member) => (
+                    <SelectItem key={member.user_id} value={String(member.user_id)}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {COLUMNS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {statusLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="flex gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1">
+              <Button
+                type="button"
+                onClick={() => {
+                  onSave({
+                    title,
+                    description,
+                    due_date: dueDate,
+                    assigned_user_id: assignedUserId,
+                    status,
+                  })
+                  setEditing(false)
+                }}
+              >
+                Salvar
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
     <article
-      className={`card task-card draggable ${dragging ? 'dragging' : ''} ${
-        dropEdge === 'before' ? 'drop-before' : dropEdge === 'after' ? 'drop-after' : ''
-      }`}
+      className={cn(
+        'mb-3 grid cursor-grab gap-[0.45rem] rounded-[14px] border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%),var(--card)] p-4 hover:border-[rgba(110,168,255,0.28)]',
+        dragging && 'cursor-grabbing opacity-45',
+        dropEdge === 'before' && 'shadow-[0_-3px_0_var(--primary)]',
+        dropEdge === 'after' && 'shadow-[0_3px_0_var(--primary)]',
+      )}
       draggable
       onDragOver={onDragOverCard}
       onDrop={onDropCard}
@@ -485,13 +530,13 @@ function TaskCard({
       }}
       onDragEnd={onDragEnd}
     >
-      <h4>{task.title}</h4>
+      <h4 className="font-semibold">{task.title}</h4>
       {task.description && <p>{task.description}</p>}
-      <p className="muted">Responsável: {task.assigned_user_name}</p>
-      {task.due_date && <p className="muted">Prazo: {formatDate(task.due_date)}</p>}
-      <button className="button ghost small" type="button" onClick={() => setEditing(true)}>
+      <p className="text-muted-foreground">Responsável: {task.assigned_user_name}</p>
+      {task.due_date && <p className="text-muted-foreground">Prazo: {formatDate(task.due_date)}</p>}
+      <Button variant="ghost" size="sm" type="button" className="w-fit" onClick={() => setEditing(true)}>
         Editar
-      </button>
+      </Button>
     </article>
   )
 }

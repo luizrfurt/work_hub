@@ -1,10 +1,31 @@
 import { type FormEvent, useEffect, useState } from 'react'
 
 import { createUser, listUsers, updateUser } from '../../api/users'
+import { ErrorAlert } from '../../components/ErrorAlert'
+import { Field } from '../../components/Field'
 import { PasswordField } from '../../components/PasswordField'
 import { useAuth } from '../../contexts/AuthContext'
 import type { User, UserRole } from '../../types'
 import { getErrorMessage, roleLabel } from '../../utils/format'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export function UsersPage() {
   const { user: currentUser, logout, applyUser } = useAuth()
@@ -100,141 +121,163 @@ export function UsersPage() {
 
   return (
     <section>
-      <div className="page-header">
+      <div className="mb-[1.2rem] flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1>Usuários</h1>
-          <p className="muted">
+          <h1 className="mb-1 text-[1.75rem] font-bold tracking-[-0.02em]">Usuários</h1>
+          <p className="text-muted-foreground">
             Cadastre pessoas da empresa e altere nome, usuário de login, senha, perfil e situação.
           </p>
         </div>
       </div>
 
-      {error && <div className="alert">{error}</div>}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
-      <form className="card form-card" onSubmit={(event) => void handleCreate(event)}>
-        <h2>Novo usuário</h2>
-        <div className="form-row">
-          <label>
-            Nome
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
-          </label>
-          <label>
-            Usuário de login
-            <input value={username} onChange={(event) => setUsername(event.target.value)} required />
-          </label>
-        </div>
-        <div className="form-row">
-          <label>
-            Senha
-            <PasswordField
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
-          <label>
-            Perfil
-            <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-              <option value="COLLABORATOR">Colaborador</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </label>
-        </div>
-        <button className="button primary" type="submit" disabled={saving}>
-          {saving ? 'Salvando...' : 'Cadastrar usuário'}
-        </button>
-      </form>
+      <Card className="mb-4">
+        <CardContent>
+          <form className="grid gap-3" onSubmit={(event) => void handleCreate(event)}>
+            <h2 className="text-[1.05rem] font-semibold">Novo usuário</h2>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-[0.85rem]">
+              <Field label="Nome">
+                <Input value={name} onChange={(event) => setName(event.target.value)} required />
+              </Field>
+              <Field label="Usuário de login">
+                <Input value={username} onChange={(event) => setUsername(event.target.value)} required />
+              </Field>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-[0.85rem]">
+              <Field label="Senha">
+                <PasswordField
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  minLength={8}
+                  required
+                />
+              </Field>
+              <Field label="Perfil">
+                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="COLLABORATOR">Colaborador</SelectItem>
+                    <SelectItem value="ADMIN">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <Button className="w-fit" type="submit" disabled={saving}>
+              {saving ? 'Salvando...' : 'Cadastrar usuário'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {editing && (
-        <form className="card form-card" onSubmit={(event) => void handleUpdate(event)}>
-          <h2>Editar {editing.name}</h2>
-          <div className="form-row">
-            <label>
-              Nome
-              <input value={editName} onChange={(event) => setEditName(event.target.value)} required />
-            </label>
-            <label>
-              Usuário de login
-              <input
-                value={editUsername}
-                onChange={(event) => setEditUsername(event.target.value)}
-                minLength={3}
-                required
-              />
-            </label>
-          </div>
-          <div className="form-row">
-            <label>
-              Nova senha (opcional)
-              <PasswordField
-                value={editPassword}
-                onChange={(event) => setEditPassword(event.target.value)}
-                minLength={8}
-                autoComplete="new-password"
-              />
-            </label>
-            <label>
-              Perfil
-              <select value={editRole} onChange={(event) => setEditRole(event.target.value as UserRole)}>
-                <option value="COLLABORATOR">Colaborador</option>
-                <option value="ADMIN">Administrador</option>
-              </select>
-            </label>
-            <label>
-              Situação
-              <select
-                value={editActive ? 'active' : 'inactive'}
-                onChange={(event) => setEditActive(event.target.value === 'active')}
-              >
-                <option value="active">Ativo</option>
-                <option value="inactive">Inativo</option>
-              </select>
-            </label>
-          </div>
-          <div className="inline-form">
-            <button className="button primary" type="submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar alterações'}
-            </button>
-            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
-              Cancelar
-            </button>
-          </div>
-        </form>
+        <Card className="mb-4">
+          <CardContent>
+            <form className="grid gap-3" onSubmit={(event) => void handleUpdate(event)}>
+              <h2 className="text-[1.05rem] font-semibold">Editar {editing.name}</h2>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-[0.85rem]">
+                <Field label="Nome">
+                  <Input value={editName} onChange={(event) => setEditName(event.target.value)} required />
+                </Field>
+                <Field label="Usuário de login">
+                  <Input
+                    value={editUsername}
+                    onChange={(event) => setEditUsername(event.target.value)}
+                    minLength={3}
+                    required
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-[0.85rem]">
+                <Field label="Nova senha (opcional)">
+                  <PasswordField
+                    value={editPassword}
+                    onChange={(event) => setEditPassword(event.target.value)}
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                </Field>
+                <Field label="Perfil">
+                  <Select value={editRole} onValueChange={(value) => setEditRole(value as UserRole)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="COLLABORATOR">Colaborador</SelectItem>
+                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Situação">
+                  <Select
+                    value={editActive ? 'active' : 'inactive'}
+                    onValueChange={(value) => setEditActive(value === 'active')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="inactive">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="flex gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar alterações'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Usuário de login</th>
-              <th>Perfil</th>
-              <th>Situação</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((item) => (
-              <tr key={item.id}>
-                <td>{item.name}</td>
-                <td>{item.username}</td>
-                <td>{roleLabel(item.role)}</td>
-                <td>
-                  <span className={`status-pill ${item.is_active ? 'on' : 'off'}`}>
-                    {item.is_active ? 'Ativo' : 'Inativo'}
-                  </span>
-                </td>
-                <td>
-                  <button className="button ghost small" type="button" onClick={() => startEdit(item)}>
-                    Editar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Usuário de login</TableHead>
+                <TableHead>Perfil</TableHead>
+                <TableHead>Situação</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.username}</TableCell>
+                  <TableCell>{roleLabel(item.role)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      className={
+                        item.is_active
+                          ? 'rounded-full border-[rgba(109,255,176,0.35)] bg-[rgba(109,255,176,0.12)] px-[0.62rem] py-[0.18rem] text-ok'
+                          : 'rounded-full border-border bg-white/4 px-[0.62rem] py-[0.18rem] text-muted-foreground'
+                      }
+                    >
+                      {item.is_active ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" type="button" onClick={() => startEdit(item)}>
+                      Editar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </section>
   )
 }

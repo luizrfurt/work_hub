@@ -1,0 +1,32 @@
+# PostgreSQL local para desenvolvimento.
+# Backend e frontend continuam rodando na máquina.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# DATABASE_URL no backend/.env:
+#   postgresql+psycopg://workhub:workhub@localhost:5432/workhub
+
+name: workhub-dev
+
+services:
+  workhub-db:
+    image: postgres:16-alpine
+    container_name: workhub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workhub
+      POSTGRES_PASSWORD: workhub
+      POSTGRES_DB: workhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workhub -d workhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:

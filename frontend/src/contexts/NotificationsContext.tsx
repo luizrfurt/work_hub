@@ -1,0 +1,183 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+
+import { useNotificationSocket } from '../hooks/useNotificationSocket'
+import type { Project } from '../types'
+import {
+  isChatTab,
+  isViewingConversation,
+  notifyIncomingMessage,
+  requestNotificationPermission,
+  unlockAudio,
+} from '../utils/alerts'
+import { loadLastRead, loadUnreadCounts, saveLastRead, saveUnreadCounts } from '../utils/storage'
+import { useAuth } from './AuthContext'
+
+interface NotificationsValue {
+  unreadByProject: Record<number, number>
+  totalUnread: number
+  unreadFor: (projectId: number | string) => number
+  setActiveView: (projectId: number | string | null, tab: string | null) => void
+  markRead: (projectId: number) => void
+  syncFromProjects: (projects: Project[]) => void
+}
+
+const NotificationsContext = createContext<NotificationsValue | undefined>(undefined)
+
+export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const [unreadByProject, setUnreadByProject] = useState<Record<number, number>>({})
+  const lastReadRef = useRef<Record<number, string>>({})
+  const unreadRef = useRef<Record<number, number>>({})
+  const activeProjectRef = useRef<number | null>(null)
+  const activeTabRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!user) {
+      lastReadRef.current = {}
+      unreadRef.current = {}
+      setUnreadByProject({})
+      return
+    }
+    lastReadRef.current = loadLastRead(user.id)
+    const stored = loadUnreadCounts(user.id)
+    unreadRef.current = stored
+    setUnreadByProject(stored)
+  }, [user?.id])
+
+  const persistUnread = useCallback(
+    (next: Record<number, number>) => {
+      unreadRef.current = next
+      setUnreadByProject(next)
+      if (user) {
+        saveUnreadCounts(user.id, next)
+      }
+    },
+    [user],
+  )
+
+  const markRead = useCallback(
+    (projectId: number) => {
+      lastReadRef.current = {
+        ...lastReadRef.current,
+        [projectId]: new Date().toISOString(),
+      }
+      if (user) {
+        saveLastRead(user.id, lastReadRef.current)
+      }
+      if (!unreadRef.current[projectId]) {
+        return
+      }
+      const next = { ...unreadRef.current }
+      delete next[projectId]
+      persistUnread(next)
+    },
+    [persistUnread, user],
+  )
+
+  const setActiveView = useCallback(
+    (projectId: number | string | null, tab: string | null) => {
+      const id = projectId == null ? null : Number(projectId)
+      activeProjectRef.current = Number.isInteger(id) ? id : null
+      activeTabRef.current = tab
+      if (id != null && Number.isInteger(id) && isChatTab(tab ?? '')) {
+        markRead(id)
+      }
+    },
+    [markRead],
+  )
+
+  const syncFromProjects = useCallback((projects: Project[]) => {
+    const next = { ...unreadRef.current }
+    let changed = false
+    for (const project of projects) {
+      const lastMessage = project.last_message_at ? Date.parse(project.last_message_at) : NaN
+      const readAt = lastReadRef.current[project.id]
+      const readTime = readAt ? Date.parse(readAt) : NaN
+      if (Number.isFinite(lastMessage) && Number.isFinite(readTime) && lastMessage <= readTime && next[project.id]) {
+        delete next[project.id]
+        changed = true
+      }
+    }
+    if (changed) {
+      persistUnread(next)
+    }
+  }, [persistUnread])
+
+  useEffect(() => {
+    const unlock = () => unlockAudio()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    requestNotificationPermission()
+    return () => window.removeEventListener('pointerdown', unlock)
+  }, [])
+
+  useEffect(() => {
+    const markIfViewing = () => {
+      const projectId = activeProjectRef.current
+      const tab = activeTabRef.current
+      if (projectId != null && isViewingConversation(tab ?? '')) {
+        markRead(projectId)
+      }
+    }
+    document.addEventListener('visibilitychange', markIfViewing)
+    window.addEventListener('focus', markIfViewing)
+    return () => {
+      document.removeEventListener('visibilitychange', markIfViewing)
+      window.removeEventListener('focus', markIfViewing)
+    }
+  }, [markRead])
+
+  useNotificationSocket({
+    enabled: Boolean(user),
+    onEvent: (event) => {
+      const message = event.payload
+      if (!user || message.user_id === user.id) {
+        return
+      }
+      const viewingThisChat =
+        activeProjectRef.current === message.project_id && isViewingConversation(activeTabRef.current ?? '')
+      if (viewingThisChat) {
+        markRead(message.project_id)
+        return
+      }
+      persistUnread({
+        ...unreadRef.current,
+        [message.project_id]: (unreadRef.current[message.project_id] ?? 0) + 1,
+      })
+      notifyIncomingMessage(event.project_name || 'WorkHub', message)
+    },
+  })
+
+  const unreadFor = useCallback(
+    (projectId: number | string) => unreadByProject[Number(projectId)] ?? 0,
+    [unreadByProject],
+  )
+
+  const totalUnread = useMemo(
+    () => Object.values(unreadByProject).reduce((sum, count) => sum + count, 0),
+    [unreadByProject],
+  )
+
+  const value = useMemo(
+    () => ({ unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects }),
+    [unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects],
+  )
+
+  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
+}
+
+export function useNotifications(): NotificationsValue {
+  const context = useContext(NotificationsContext)
+  if (!context) {
+    throw new Error('useNotifications must be used within NotificationsProvider')
+  }
+  return context
+}

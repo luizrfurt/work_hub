@@ -1,0 +1,38 @@
+import type { Task, TaskStatus } from '../types'
+import { api } from './client'
+
+export async function listTasks(projectId: number | string): Promise<Task[]> {
+  const { data } = await api.get<Task[]>(`/projects/${projectId}/tasks`)
+  return data
+}
+
+export async function createTask(
+  projectId: number | string,
+  payload: {
+    title: string
+    description?: string
+    due_date?: string
+    assigned_user_id: number
+    status?: TaskStatus
+    position?: number
+  },
+): Promise<Task> {
+  const { data } = await api.post<Task>(`/projects/${projectId}/tasks`, payload)
+  return data
+}
+
+export async function updateTask(
+  projectId: number | string,
+  taskId: number | string,
+  payload: {
+    title?: string
+    description?: string
+    due_date?: string | null
+    assigned_user_id?: number
+    status?: TaskStatus
+    position?: number
+  },
+): Promise<Task> {
+  const { data } = await api.patch<Task>(`/projects/${projectId}/tasks/${taskId}`, payload)
+  return data
+}

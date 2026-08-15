@@ -1,0 +1,92 @@
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models.project import Project
+from app.models.project_member import ProjectMember
+from app.models.user import User
+
+
+class ProjectRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def get_by_id(self, project_id: int) -> Project | None:
+        return self.db.get(Project, project_id)
+
+    def list_all(self) -> list[tuple[Project, int]]:
+        member_count = func.count(ProjectMember.id).label("member_count")
+        stmt = (
+            select(Project, member_count)
+            .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
+            .group_by(Project.id)
+            .order_by(Project.name.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def list_for_organization(self, organization_id: int) -> list[tuple[Project, int]]:
+        member_count = func.count(ProjectMember.id).label("member_count")
+        stmt = (
+            select(Project, member_count)
+            .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(Project.organization_id == organization_id)
+            .group_by(Project.id)
+            .order_by(Project.name.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def count_distinct_members(self) -> int:
+        stmt = select(func.count(func.distinct(ProjectMember.user_id)))
+        return int(self.db.execute(stmt).scalar_one() or 0)
+
+    def count_distinct_members_for_organization(self, organization_id: int) -> int:
+        stmt = (
+            select(func.count(func.distinct(ProjectMember.user_id)))
+            .join(Project, Project.id == ProjectMember.project_id)
+            .where(Project.organization_id == organization_id)
+        )
+        return int(self.db.execute(stmt).scalar_one() or 0)
+
+    def list_for_user(self, user_id: int) -> list[tuple[Project, int]]:
+        member_projects = select(ProjectMember.project_id).where(ProjectMember.user_id == user_id)
+        member_count = func.count(ProjectMember.id).label("member_count")
+        stmt = (
+            select(Project, member_count)
+            .join(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(Project.id.in_(member_projects))
+            .group_by(Project.id)
+            .order_by(Project.name.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def add(self, project: Project) -> Project:
+        self.db.add(project)
+        self.db.flush()
+        return project
+
+    def get_membership(self, project_id: int, user_id: int) -> ProjectMember | None:
+        stmt = select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def is_member(self, project_id: int, user_id: int) -> bool:
+        return self.get_membership(project_id, user_id) is not None
+
+    def list_members(self, project_id: int) -> list[tuple[ProjectMember, User]]:
+        stmt = (
+            select(ProjectMember, User)
+            .join(User, User.id == ProjectMember.user_id)
+            .where(ProjectMember.project_id == project_id)
+            .order_by(User.name.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def add_member(self, membership: ProjectMember) -> ProjectMember:
+        self.db.add(membership)
+        self.db.flush()
+        return membership
+
+    def remove_member(self, membership: ProjectMember) -> None:
+        self.db.delete(membership)
+        self.db.flush()

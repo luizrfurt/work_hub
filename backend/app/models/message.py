@@ -1,0 +1,26 @@
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database.base import Base
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
+    )
+
+    project = relationship("Project", back_populates="messages")
+    author = relationship("User")
+    attachments = relationship(
+        "MessageAttachment", back_populates="message", cascade="all, delete-orphan"
+    )

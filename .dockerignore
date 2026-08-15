@@ -1,0 +1,10 @@
+.venv/
+node_modules/
+frontend/dist/
+.git/
+**/.env
+!**/.env.example
+uploads/
+backend/uploads/
+.idea/
+.vscode/

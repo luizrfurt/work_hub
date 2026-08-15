@@ -1,0 +1,90 @@
+# Stack na mesma rede do Caddy Zioncor.
+# Uso no servidor:
+#   cd /opt/work_hub
+#   docker compose --env-file backend/.env up -d --build
+#
+# Caddy (um único domínio):
+#   workhub.zioncor.com.br        → workhub-web:80
+#   workhub.zioncor.com.br/api/*  → workhub-api:8000  (prefixo /api removido)
+#   workhub.zioncor.com.br/ws/*   → workhub-api:8000
+
+name: workhub
+
+services:
+  workhub-db:
+    image: postgres:16-alpine
+    container_name: workhub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workhub
+      POSTGRES_PASSWORD: workhub
+      POSTGRES_DB: workhub
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workhub -d workhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - zioncor
+
+  workhub-api:
+    build:
+      context: ./backend
+    container_name: workhub-api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://workhub:workhub@workhub-db:5432/workhub
+      UPLOAD_DIRECTORY: /app/uploads
+      FRONTEND_URL: https://workhub.zioncor.com.br
+    expose:
+      - "8000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      workhub-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - zioncor
+
+  workhub-web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://workhub.zioncor.com.br/api
+        VITE_WS_URL: wss://workhub.zioncor.com.br
+    container_name: workhub-web
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - workhub-api
+    networks:
+      - zioncor
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  zioncor:
+    external: true
+    name: zioncor-prod_zioncor

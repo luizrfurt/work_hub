@@ -17,8 +17,10 @@ function rewriteForLan(rawUrl: string, asWebSocket: boolean): string {
   }
   if (asWebSocket) {
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    return url.origin
   }
-  return url.origin
+  const path = url.pathname.replace(/\/$/, '')
+  return `${url.origin}${path === '/' ? '' : path}`
 }
 
 const configuredApi = import.meta.env.VITE_API_URL || `http://${currentHostname()}:8000`

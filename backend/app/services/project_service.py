@@ -31,6 +31,7 @@ class ProjectService:
         self.messages = MessageRepository(db)
 
     def create_project(self, payload: ProjectCreate, actor: User) -> Project:
+        require_admin(actor)
         project = Project(
             organization_id=actor.organization_id,
             name=payload.name.strip(),

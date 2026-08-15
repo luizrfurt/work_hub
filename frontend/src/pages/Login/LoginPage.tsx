@@ -33,7 +33,7 @@ export function LoginPage() {
         <h1>WorkHub</h1>
         <p className="sub">Comunicação e tarefas da equipe, em um só lugar.</p>
       </header>
-      <form className="card" onSubmit={(event) => void handleSubmit(event)}>
+      <form className="card login-form" onSubmit={(event) => void handleSubmit(event)}>
         {error && <div className="alert">{error}</div>}
         <label>
           Usuário

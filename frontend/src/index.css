@@ -372,6 +372,15 @@ label {
   gap: 0.42rem;
 }
 
+.login-form {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.login-form .button {
+  margin-top: 0.35rem;
+}
+
 .form-card {
   margin-bottom: 1rem;
 }

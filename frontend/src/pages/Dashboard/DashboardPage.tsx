@@ -59,7 +59,7 @@ export function DashboardPage() {
               : 'Escolha um projeto para conversar e acompanhar as tarefas.'}
           </p>
         </div>
-        {user && (
+        {user?.role === 'ADMIN' && (
           <button className="button primary" type="button" onClick={() => setShowForm((value) => !value)}>
             + Novo projeto
           </button>
@@ -68,7 +68,7 @@ export function DashboardPage() {
 
       {error && <div className="alert">{error}</div>}
 
-      {showForm && (
+      {showForm && user?.role === 'ADMIN' && (
         <form className="card form-card" onSubmit={(event) => void handleCreate(event)}>
           <h2>Novo projeto</h2>
           <label>
@@ -109,7 +109,11 @@ export function DashboardPage() {
         {projects.length === 0 && (
           <div className="empty-state card">
             <strong>Nenhum projeto por aqui ainda</strong>
-            <p className="muted">Crie o primeiro projeto para começar a conversar e organizar as tarefas.</p>
+            <p className="muted">
+              {user?.role === 'ADMIN'
+                ? 'Crie o primeiro projeto para começar a conversar e organizar as tarefas.'
+                : 'Peça a um administrador para incluir você em um projeto.'}
+            </p>
           </div>
         )}
       </div>

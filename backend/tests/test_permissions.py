@@ -24,8 +24,13 @@ def test_collaborator_cannot_manage_members(client, unique):
     project = client.post(
         "/projects",
         json={"name": f"Projeto membros {unique}"},
-        headers=auth_header(owner["access_token"]),
+        headers=auth_header(admin["access_token"]),
     ).json()
+    client.post(
+        f"/projects/{project['id']}/members",
+        json={"user_id": owner["user"]["id"]},
+        headers=auth_header(admin["access_token"]),
+    )
 
     added = client.post(
         f"/projects/{project['id']}/members",
@@ -88,7 +93,7 @@ def test_admin_overview_summarizes_tasks(client, unique):
     assert person["todo"] >= 1
 
 
-def test_collaborator_can_create_project(client, unique):
+def test_collaborator_cannot_create_project(client, unique):
     admin = register_admin(client, unique)
     collab = create_collaborator(client, admin["access_token"], unique)
     response = client.post(
@@ -96,8 +101,7 @@ def test_collaborator_can_create_project(client, unique):
         json={"name": f"Projeto collab {unique}", "description": "ok"},
         headers=auth_header(collab["access_token"]),
     )
-    assert response.status_code == 201, response.text
-    assert response.json()["name"] == f"Projeto collab {unique}"
+    assert response.status_code == 403
 
 
 def test_outsider_cannot_access_messages(client, unique):

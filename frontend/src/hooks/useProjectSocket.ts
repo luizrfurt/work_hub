@@ -35,9 +35,14 @@ export function useProjectSocket({ projectId, enabled, onEvent }: UseProjectSock
       if (!token || stopped) {
         return
       }
-      const socket = new WebSocket(
-        `${wsBaseUrl}/ws/projects/${projectId}?token=${encodeURIComponent(token)}`,
-      )
+      let socket: WebSocket
+      try {
+        socket = new WebSocket(
+          `${wsBaseUrl}/ws/projects/${projectId}?token=${encodeURIComponent(token)}`,
+        )
+      } catch {
+        return
+      }
       socketRef.current = socket
 
       socket.onopen = () => {

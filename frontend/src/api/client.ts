@@ -16,7 +16,14 @@ function rewriteForLan(rawUrl: string, asWebSocket: boolean): string {
     url.hostname = currentHostname()
   }
   if (asWebSocket) {
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    if (url.protocol === 'http:') {
+      url.protocol = 'ws:'
+    } else if (url.protocol === 'https:') {
+      url.protocol = 'wss:'
+    }
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      url.protocol = 'wss:'
+    }
     return url.origin
   }
   const path = url.pathname.replace(/\/$/, '')

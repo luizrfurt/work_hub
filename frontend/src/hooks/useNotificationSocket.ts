@@ -35,7 +35,11 @@ export function useNotificationSocket({ enabled, onEvent }: UseNotificationSocke
       if (!token || stopped) {
         return
       }
-      socket = new WebSocket(`${wsBaseUrl}/ws/notifications?token=${encodeURIComponent(token)}`)
+      try {
+        socket = new WebSocket(`${wsBaseUrl}/ws/notifications?token=${encodeURIComponent(token)}`)
+      } catch {
+        return
+      }
 
       socket.onopen = () => {
         retries = 0

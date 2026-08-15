@@ -95,7 +95,6 @@ export function ProjectPage() {
         setSelectedUserId={setSelectedUserId}
         error={error}
         projectId={projectId}
-        user={user}
         isAdmin={isAdmin}
         onAddMember={handleAddMember}
         onRemove={handleRemove}
@@ -114,7 +113,6 @@ function ProjectWorkspace({
   setSelectedUserId,
   error,
   projectId,
-  user,
   isAdmin,
   onAddMember,
   onRemove,
@@ -128,7 +126,6 @@ function ProjectWorkspace({
   setSelectedUserId: (value: string) => void
   error: string
   projectId: string
-  user: User | null | undefined
   isAdmin: boolean
   onAddMember: (event: FormEvent) => void
   onRemove: (userId: number) => void

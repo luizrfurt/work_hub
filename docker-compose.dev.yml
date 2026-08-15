@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.dev.yml up -d
 #
 # DATABASE_URL no backend/.env:
-#   postgresql+psycopg://workhub:workhub@localhost:5432/workhub
+#   postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
 
 name: workhub-dev
 
@@ -16,13 +16,13 @@ services:
     environment:
       POSTGRES_USER: workhub
       POSTGRES_PASSWORD: workhub
-      POSTGRES_DB: workhub
+      POSTGRES_DB: work_hub
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workhub -d workhub"]
+      test: ["CMD-SHELL", "pg_isready -U workhub -d work_hub"]
       interval: 5s
       timeout: 5s
       retries: 10

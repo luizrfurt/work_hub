@@ -68,7 +68,7 @@ Modelo (troque o secret):
 ```env
 APP_ENV=production
 
-DATABASE_URL=postgresql+psycopg://workhub:workhub@workhub-db:5432/workhub
+DATABASE_URL=postgresql+psycopg://workhub:workhub@workhub-db:5432/work_hub
 
 JWT_SECRET_KEY=<SECRET_KEY_LONGA_E_ALEATORIA>
 
@@ -91,7 +91,7 @@ FRONTEND_URL=https://workhub.zioncor.com.br
 | `JWT_SECRET_KEY` | String longa e aleatória. Nunca use `change-me`. |
 | `backend/.env` | `chmod 600`. **Nunca** commit no Git. |
 
-Default do Postgres no Compose: usuário/senha/db `workhub`. São valores de bootstrap — troque em produção se o VPS for compartilhado.
+Default do Postgres no Compose: usuário/senha `workhub`, banco `work_hub`. São valores de bootstrap — troque a senha em produção se o VPS for compartilhado.
 
 ---
 
@@ -230,7 +230,7 @@ Teste no próprio servidor:
 
 ```bash
 docker run --rm --network host postgres:16-alpine \
-  psql "postgresql://workhub:workhub@127.0.0.1:5434/workhub" -c 'SELECT 1'
+  psql "postgresql://workhub:workhub@127.0.0.1:5434/work_hub" -c 'SELECT 1'
 ```
 
 Deve retornar `1`.
@@ -247,7 +247,7 @@ Nova conexão → PostgreSQL.
 |--------|--------|
 | Host | `127.0.0.1` |
 | Port | `5434` |
-| Database | `workhub` |
+| Database | `work_hub` |
 | User | `workhub` |
 | Password | `workhub` (ou a senha que você tiver trocado no Compose) |
 
@@ -286,7 +286,7 @@ Sem túnel SSH.
 |--------|--------|
 | Host | `127.0.0.1` |
 | Port | `5432` |
-| Database | `workhub` |
+| Database | `work_hub` |
 | User / Password | `workhub` / `workhub` |
 | SSH | desligado |
 | SSL | `disable` |

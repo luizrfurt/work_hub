@@ -44,7 +44,7 @@ Edite o `.env` e defina pelo menos:
 
 ```env
 APP_ENV=development
-DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/workhub
+DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
 JWT_SECRET_KEY=uma-chave-longa-e-secreta
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=30
@@ -80,10 +80,10 @@ cd C:\Dev\work_hub
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Isso sobe o Postgres 16 em `localhost:5432` (usuário/senha/banco: `workhub`). Os dados ficam no volume Docker `workhub-dev_pgdata`.
+Isso sobe o Postgres 16 em `localhost:5432` (usuário/senha `workhub`, banco `work_hub`). Os dados ficam no volume Docker `workhub-dev_pgdata`.
 
 ```env
-DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/workhub
+DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
 ```
 
 Para parar: `docker compose -f docker-compose.dev.yml down` (o volume permanece). Para apagar os dados: `docker compose -f docker-compose.dev.yml down -v`.

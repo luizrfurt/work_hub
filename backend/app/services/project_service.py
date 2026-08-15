@@ -19,7 +19,9 @@ from app.schemas.project import (
     ProjectCreate,
     ProjectMemberPublic,
     ProjectPublic,
+    ProjectUpdate,
 )
+from app.storage import storage
 
 
 class ProjectService:
@@ -43,6 +45,34 @@ class ProjectService:
         self.db.commit()
         self.db.refresh(project)
         return project
+
+    def update_project(self, project_id: int, payload: ProjectUpdate, actor: User) -> ProjectPublic:
+        require_admin(actor)
+        project = self._require_accessible_project(project_id, actor)
+        if payload.name is not None:
+            project.name = payload.name.strip()
+        if "description" in payload.model_fields_set:
+            project.description = payload.description.strip() if payload.description else None
+        self.db.commit()
+        self.db.refresh(project)
+        return self.get_project(project.id, actor)
+
+    def delete_project(self, project_id: int, actor: User) -> None:
+        require_admin(actor)
+        project = self._require_accessible_project(project_id, actor)
+        attachment_keys = self.messages.list_attachment_keys_for_project(project.id)
+        self.projects.delete(project)
+        self.db.commit()
+        connection_manager.disconnect_room(project_id)
+        for storage_key in attachment_keys:
+            try:
+                storage.delete(storage_key)
+            except ValueError:
+                continue
+        try:
+            storage.delete_prefix(str(project_id))
+        except ValueError:
+            pass
 
     def list_projects(self, actor: User) -> list[ProjectPublic]:
         rows = (

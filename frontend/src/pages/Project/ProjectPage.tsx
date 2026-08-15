@@ -1,8 +1,10 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { addMember, getProject, listMembers, removeMember } from '../../api/projects'
 import { listUsers } from '../../api/users'
+import { DeleteProjectDialog } from '../../components/DeleteProjectDialog'
+import { EditProjectDialog } from '../../components/EditProjectDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { UserAvatar } from '../../components/UserAvatar'
 import { useAuth } from '../../contexts/AuthContext'
@@ -111,6 +113,7 @@ export function ProjectPage() {
         isAdmin={isAdmin}
         onAddMember={handleAddMember}
         onRemove={handleRemove}
+        onProjectUpdated={setProject}
       />
     </ProjectRealtimeProvider>
   )
@@ -129,6 +132,7 @@ function ProjectWorkspace({
   isAdmin,
   onAddMember,
   onRemove,
+  onProjectUpdated,
 }: {
   tab: Tab
   setTab: (tab: Tab) => void
@@ -142,9 +146,13 @@ function ProjectWorkspace({
   isAdmin: boolean
   onAddMember: (event: FormEvent) => void
   onRemove: (userId: number) => void
+  onProjectUpdated: (project: Project) => void
 }) {
+  const navigate = useNavigate()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const currentTab = tab === 'members' && !isAdmin ? 'chat' : tab
-  const { unreadFor, setActiveView } = useNotifications()
+  const { unreadFor, setActiveView, markRead } = useNotifications()
   const unreadCount = unreadFor(projectId)
 
   useEffect(() => {
@@ -156,6 +164,7 @@ function ProjectWorkspace({
     'group rounded-full px-4 py-2 font-semibold text-muted-foreground data-active:border data-active:border-[rgba(110,168,255,0.28)] data-active:bg-[rgba(110,168,255,0.16)] data-active:text-foreground dark:data-active:bg-[rgba(110,168,255,0.16)]'
 
   return (
+    <>
     <Tabs
       value={currentTab}
       onValueChange={(value) => setTab(value as Tab)}
@@ -171,7 +180,18 @@ function ProjectWorkspace({
               {project?.name ?? 'Carregando...'}
             </h1>
           </div>
-          <TabsList className="h-auto w-fit max-w-full shrink-0 rounded-full border border-border bg-black/22 p-[0.3rem] max-[800px]:w-full max-[800px]:overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdmin && project && (
+              <>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+                  Editar
+                </Button>
+                <Button type="button" variant="destructive" size="sm" onClick={() => setDeleting(true)}>
+                  Excluir
+                </Button>
+              </>
+            )}
+            <TabsList className="h-auto w-fit max-w-full shrink-0 rounded-full border border-border bg-black/22 p-[0.3rem] max-[800px]:w-full max-[800px]:overflow-x-auto">
             <TabsTrigger value="chat" className={tabTriggerClass}>
               Conversa
               {unreadCount > 0 && (
@@ -189,6 +209,7 @@ function ProjectWorkspace({
               </TabsTrigger>
             )}
           </TabsList>
+          </div>
         </div>
         {project?.description && (
           <p className="mb-3 text-muted-foreground">{project.description}</p>
@@ -273,5 +294,21 @@ function ProjectWorkspace({
           </TabsContent>
         )}
     </Tabs>
+    <EditProjectDialog
+      project={project}
+      open={editing}
+      onOpenChange={setEditing}
+      onSaved={onProjectUpdated}
+    />
+    <DeleteProjectDialog
+      project={project}
+      open={deleting}
+      onOpenChange={setDeleting}
+      onDeleted={() => {
+        markRead(Number(projectId))
+        navigate('/projects')
+      }}
+    />
+    </>
   )
 }

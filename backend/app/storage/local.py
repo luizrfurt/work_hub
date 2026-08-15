@@ -29,5 +29,17 @@ class LocalStorage(StorageBackend):
         if path.exists():
             path.unlink()
 
+    def delete_prefix(self, prefix: str) -> None:
+        directory = self._resolve(prefix)
+        if not directory.is_dir():
+            return
+        for path in directory.iterdir():
+            if path.is_file():
+                path.unlink()
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
     def path_for(self, storage_key: str) -> str:
         return str(self._resolve(storage_key))

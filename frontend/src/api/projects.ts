@@ -24,6 +24,21 @@ export async function createProject(payload: {
   return data
 }
 
+export async function updateProject(
+  projectId: number | string,
+  payload: {
+    name?: string
+    description?: string | null
+  },
+): Promise<Project> {
+  const { data } = await api.patch<Project>(`/projects/${projectId}`, payload)
+  return data
+}
+
+export async function deleteProject(projectId: number | string): Promise<void> {
+  await api.delete(`/projects/${projectId}`)
+}
+
 export async function listMembers(projectId: number | string): Promise<ProjectMember[]> {
   const { data } = await api.get<ProjectMember[]>(`/projects/${projectId}/members`)
   return data

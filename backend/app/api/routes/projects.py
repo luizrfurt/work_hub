@@ -4,7 +4,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database.connection import get_db
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectMemberAdd, ProjectMemberPublic, ProjectPublic, OverviewPublic
+from app.schemas.project import (
+    OverviewPublic,
+    ProjectCreate,
+    ProjectMemberAdd,
+    ProjectMemberPublic,
+    ProjectPublic,
+    ProjectUpdate,
+)
 from app.services.project_service import ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -52,6 +59,26 @@ def get_project(
     current_user: User = Depends(get_current_user),
 ) -> ProjectPublic:
     return ProjectService(db).get_project(project_id, current_user)
+
+
+@router.patch("/{project_id}", response_model=ProjectPublic)
+def update_project(
+    project_id: int,
+    payload: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ProjectPublic:
+    return ProjectService(db).update_project(project_id, payload, current_user)
+
+
+@router.delete("/{project_id}", status_code=204)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    ProjectService(db).delete_project(project_id, current_user)
+    return Response(status_code=204)
 
 
 @router.get("/{project_id}/members", response_model=list[ProjectMemberPublic])

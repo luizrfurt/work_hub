@@ -49,6 +49,16 @@ class ConnectionManager:
         if not sockets:
             self._user_sockets.pop(user_id, None)
 
+    def disconnect_room(self, group_id: int) -> None:
+        key = self._key(group_id)
+        room = self._rooms.pop(key, None)
+        if not room:
+            return
+        loop = self._remember_loop()
+        for websocket in list(room.keys()):
+            if loop is not None:
+                asyncio.run_coroutine_threadsafe(websocket.close(code=4003), loop)
+
     def disconnect_user(self, group_id: int, user_id: int) -> None:
         key = self._key(group_id)
         room = self._rooms.get(key)

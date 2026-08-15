@@ -19,7 +19,7 @@ class ProjectRepository:
             select(Project, member_count)
             .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
             .group_by(Project.id)
-            .order_by(Project.name.asc())
+            .order_by(Project.created_at.asc(), Project.id.asc())
         )
         return list(self.db.execute(stmt).all())
 
@@ -30,7 +30,7 @@ class ProjectRepository:
             .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
             .where(Project.organization_id == organization_id)
             .group_by(Project.id)
-            .order_by(Project.name.asc())
+            .order_by(Project.created_at.asc(), Project.id.asc())
         )
         return list(self.db.execute(stmt).all())
 
@@ -54,7 +54,7 @@ class ProjectRepository:
             .join(ProjectMember, ProjectMember.project_id == Project.id)
             .where(Project.id.in_(member_projects))
             .group_by(Project.id)
-            .order_by(Project.name.asc())
+            .order_by(Project.created_at.asc(), Project.id.asc())
         )
         return list(self.db.execute(stmt).all())
 
@@ -89,4 +89,8 @@ class ProjectRepository:
 
     def remove_member(self, membership: ProjectMember) -> None:
         self.db.delete(membership)
+        self.db.flush()
+
+    def delete(self, project: Project) -> None:
+        self.db.delete(project)
         self.db.flush()

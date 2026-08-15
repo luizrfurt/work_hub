@@ -6,7 +6,7 @@ O MVP inclui:
 
 - autenticação JWT com access token (30 min) e refresh token (30 dias);
 - cadastro de usuários somente pelo administrador;
-- projetos e membership (somente o administrador adiciona e remove pessoas);
+- projetos e membership (somente o administrador cria, edita, exclui e gerencia pessoas);
 - dashboard para administradores (tarefas ativas, concluídas e por pessoa);
 - chat em tempo real por projeto (WebSocket);
 - aviso de nova mensagem mesmo fora do projeto (som, badge em Projetos e no card);
@@ -212,12 +212,15 @@ Cobertura mínima:
 - colaborador não cadastra usuário
 - colaborador não adiciona nem remove membros
 - admin vê o dashboard geral dos projetos
-- colaborador cria projeto
+- colaborador não cria projeto
 - usuário fora do projeto não acessa mensagens, tarefas ou WebSocket
 - não atribuir tarefa a quem não é membro
 - colaborador gerencia tarefas do projeto
 - admin gerencia tarefa
 - ordem livre dos cards
+- projetos mantêm a ordem de criação
+- administrador edita e exclui projeto
+- colaborador não edita nem exclui projeto
 - username único
 - alteração da própria senha
 - administrador altera senha de outro usuário

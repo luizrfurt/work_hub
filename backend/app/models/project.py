@@ -28,5 +28,5 @@ class Project(Base):
 
     organization = relationship("Organization", back_populates="projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
-    messages = relationship("Message", back_populates="project")
-    tasks = relationship("Task", back_populates="project")
+    messages = relationship("Message", back_populates="project", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")

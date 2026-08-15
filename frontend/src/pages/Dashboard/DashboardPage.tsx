@@ -2,6 +2,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { createProject, listProjects } from '../../api/projects'
+import { DeleteProjectDialog } from '../../components/DeleteProjectDialog'
+import { EditProjectDialog } from '../../components/EditProjectDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { Field } from '../../components/Field'
 import { useAuth } from '../../contexts/AuthContext'
@@ -17,13 +19,16 @@ import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const { unreadFor, syncFromProjects } = useNotifications()
+  const { unreadFor, syncFromProjects, markRead } = useNotifications()
   const [projects, setProjects] = useState<Project[]>([])
   const [error, setError] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState<Project | null>(null)
+  const isAdmin = user?.role === 'ADMIN'
 
   async function loadProjects() {
     try {
@@ -62,12 +67,12 @@ export function DashboardPage() {
         <div>
           <h1 className="mb-1 text-[1.75rem] font-bold tracking-[-0.02em]">Projetos</h1>
           <p className="text-muted-foreground">
-            {user?.role === 'ADMIN'
+            {isAdmin
               ? 'Abra um projeto para conversar e acompanhar tarefas, ou use Dashboard para a visão geral.'
               : 'Escolha um projeto para conversar e acompanhar as tarefas.'}
           </p>
         </div>
-        {user?.role === 'ADMIN' && (
+        {isAdmin && (
           <Button type="button" onClick={() => setShowForm((value) => !value)}>
             + Novo projeto
           </Button>
@@ -76,7 +81,7 @@ export function DashboardPage() {
 
       {error && <ErrorAlert>{error}</ErrorAlert>}
 
-      {showForm && user?.role === 'ADMIN' && (
+      {showForm && isAdmin && (
         <Card className="mb-4">
           <CardContent>
             <form className="grid gap-[0.42rem]" onSubmit={(event) => void handleCreate(event)}>
@@ -99,13 +104,14 @@ export function DashboardPage() {
         {projects.map((project) => {
           const unread = unreadFor(project.id)
           return (
-            <Link key={project.id} to={`/projects/${project.id}`}>
-              <Card
-                className={cn(
-                  'relative grid min-h-[168px] content-start transition-[border-color,background] duration-150',
-                  'hover:border-[rgba(110,168,255,0.35)] hover:bg-[linear-gradient(180deg,rgba(110,168,255,0.08),transparent_40%),var(--card)]',
-                )}
-              >
+            <Card
+              key={project.id}
+              className={cn(
+                'relative grid min-h-[168px] content-start overflow-hidden transition-[border-color,background] duration-150',
+                'hover:border-[rgba(110,168,255,0.35)] hover:bg-[linear-gradient(180deg,rgba(110,168,255,0.08),transparent_40%),var(--card)]',
+              )}
+            >
+              <Link to={`/projects/${project.id}`} className="text-inherit no-underline">
                 <CardContent>
                   {unread > 0 && (
                     <Badge className="absolute top-[0.85rem] right-[0.9rem] h-auto min-h-[1.35rem] rounded-full bg-destructive px-[0.55rem] py-[0.22rem] text-[0.72rem] font-extrabold text-white">
@@ -127,8 +133,28 @@ export function DashboardPage() {
                     {project.member_count} {project.member_count === 1 ? 'membro' : 'membros'}
                   </Badge>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+              {isAdmin && (
+                <div className="flex flex-wrap gap-2 px-(--card-spacing) pb-(--card-spacing)">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditing(project)}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleting(project)}
+                  >
+                    Excluir
+                  </Button>
+                </div>
+              )}
+            </Card>
           )
         })}
         {projects.length === 0 && (
@@ -136,7 +162,7 @@ export function DashboardPage() {
             <CardContent>
               <strong className="text-foreground">Nenhum projeto por aqui ainda</strong>
               <p className="text-muted-foreground">
-                {user?.role === 'ADMIN'
+                {isAdmin
                   ? 'Crie o primeiro projeto para começar a conversar e organizar as tarefas.'
                   : 'Peça a um administrador para incluir você em um projeto.'}
               </p>
@@ -144,6 +170,35 @@ export function DashboardPage() {
           </Card>
         )}
       </div>
+
+      <EditProjectDialog
+        project={editing}
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditing(null)
+          }
+        }}
+        onSaved={(updated) => {
+          setProjects((items) => items.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+        }}
+      />
+      <DeleteProjectDialog
+        project={deleting}
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleting(null)
+          }
+        }}
+        onDeleted={() => {
+          if (!deleting) {
+            return
+          }
+          markRead(deleting.id)
+          setProjects((items) => items.filter((item) => item.id !== deleting.id))
+        }}
+      />
     </section>
   )
 }

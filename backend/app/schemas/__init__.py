@@ -1,5 +1,11 @@
 from app.schemas.message import AttachmentPublic, MessageCreate, MessageList, MessagePublic
-from app.schemas.project import ProjectCreate, ProjectMemberAdd, ProjectMemberPublic, ProjectPublic
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectMemberAdd,
+    ProjectMemberPublic,
+    ProjectPublic,
+    ProjectUpdate,
+)
 from app.schemas.task import TaskCreate, TaskPublic, TaskUpdate
 from app.schemas.user import (
     AccessTokenResponse,
@@ -20,6 +26,7 @@ __all__ = [
     "RefreshRequest",
     "AccessTokenResponse",
     "ProjectCreate",
+    "ProjectUpdate",
     "ProjectPublic",
     "ProjectMemberAdd",
     "ProjectMemberPublic",

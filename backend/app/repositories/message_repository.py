@@ -56,3 +56,11 @@ class MessageRepository:
     def last_message_times(self) -> dict[int, datetime]:
         stmt = select(Message.project_id, func.max(Message.created_at)).group_by(Message.project_id)
         return {int(project_id): created_at for project_id, created_at in self.db.execute(stmt)}
+
+    def list_attachment_keys_for_project(self, project_id: int) -> list[str]:
+        stmt = (
+            select(MessageAttachment.storage_key)
+            .join(Message, Message.id == MessageAttachment.message_id)
+            .where(Message.project_id == project_id)
+        )
+        return list(self.db.execute(stmt).scalars().all())

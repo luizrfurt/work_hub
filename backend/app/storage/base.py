@@ -15,5 +15,9 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def delete_prefix(self, prefix: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def path_for(self, storage_key: str) -> str:
         raise NotImplementedError

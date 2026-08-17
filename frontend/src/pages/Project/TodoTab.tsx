@@ -600,7 +600,7 @@ function TaskCard({
   return (
     <article
       className={cn(
-        'mb-3 grid cursor-grab gap-[0.45rem] rounded-[14px] border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%),var(--card)] p-4 hover:border-[rgba(110,168,255,0.28)]',
+        'mb-2 grid cursor-grab gap-1 rounded-[12px] border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%),var(--card)] px-3 py-2.5 hover:border-[rgba(110,168,255,0.28)]',
         dragging && 'cursor-grabbing opacity-45',
         dropEdge === 'before' && 'shadow-[0_-3px_0_var(--primary)]',
         dropEdge === 'after' && 'shadow-[0_3px_0_var(--primary)]',
@@ -620,10 +620,43 @@ function TaskCard({
       }}
       onDragEnd={onDragEnd}
     >
-      <h4 className="font-semibold">{task.title}</h4>
-      {task.description && <p>{task.description}</p>}
-      <p className="text-muted-foreground">Responsável: {task.assigned_user_name}</p>
-      {task.due_date && <p className="text-muted-foreground">Prazo: {formatDate(task.due_date)}</p>}
+      <div className="flex min-w-0 items-center gap-1">
+        <h4 className="min-w-0 flex-1 truncate font-semibold" title={task.title}>
+          {task.title}
+        </h4>
+        <div className="flex shrink-0">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            title="Editar"
+            aria-label="Editar"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            disabled={attaching}
+            title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
+            aria-label="Anexar"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Paperclip />
+          </Button>
+        </div>
+      </div>
+      {task.description && (
+        <p className="line-clamp-1 text-[0.82rem] text-muted-foreground" title={task.description}>
+          {task.description}
+        </p>
+      )}
+      <p className="truncate text-[0.78rem] text-muted-foreground">
+        {task.assigned_user_name}
+        {task.due_date ? ` · ${formatDate(task.due_date)}` : ''}
+      </p>
       <TaskAttachments
         projectId={projectId}
         task={task}
@@ -644,29 +677,6 @@ function TaskCard({
           }
         }}
       />
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          type="button"
-          title="Editar"
-          aria-label="Editar"
-          onClick={() => setEditing(true)}
-        >
-          <Pencil />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          type="button"
-          disabled={attaching}
-          title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
-          aria-label="Anexar"
-          onClick={() => fileRef.current?.click()}
-        >
-          <Paperclip />
-        </Button>
-      </div>
     </article>
   )
 }

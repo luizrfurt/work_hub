@@ -88,6 +88,9 @@ def test_admin_overview_summarizes_tasks(client, unique):
     assert body["total"] >= 2
     assert body["done"] >= 1
     assert body["active"] >= 1
+    assert body["storage_used_bytes"] == 0
+    assert body["storage_file_count"] == 0
+    assert body["storage_quota_bytes"] > 0
     person = next(item for item in body["contributors"] if item["user_id"] == collab["user"]["id"])
     assert person["done"] >= 1
     assert person["todo"] >= 1

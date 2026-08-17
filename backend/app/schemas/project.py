@@ -68,5 +68,8 @@ class OverviewPublic(BaseModel):
     done: int
     active: int
     total: int
+    storage_used_bytes: int
+    storage_quota_bytes: int
+    storage_file_count: int
     projects: list[OverviewProject]
     contributors: list[OverviewContributor]

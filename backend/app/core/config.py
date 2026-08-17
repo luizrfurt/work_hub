@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     upload_max_size_mb: int = 10
     upload_directory: str = "./uploads"
+    storage_quota_gb: int = 10
     db_pool_size: int = 5
     db_max_overflow: int = 10
     db_pool_timeout: int = 30
@@ -26,6 +27,10 @@ class Settings(BaseSettings):
     @property
     def upload_max_size_bytes(self) -> int:
         return self.upload_max_size_mb * 1024 * 1024
+
+    @property
+    def storage_quota_bytes(self) -> int:
+        return self.storage_quota_gb * 1024 * 1024 * 1024
 
     @property
     def cors_origins(self) -> list[str]:

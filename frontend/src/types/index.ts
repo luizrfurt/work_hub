@@ -111,6 +111,9 @@ export interface Overview {
   done: number
   active: number
   total: number
+  storage_used_bytes: number
+  storage_quota_bytes: number
+  storage_file_count: number
   projects: OverviewProject[]
   contributors: OverviewContributor[]
 }

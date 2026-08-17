@@ -4,9 +4,10 @@ import { Link } from 'react-router-dom'
 import { getOverview } from '../../api/projects'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import type { Overview } from '../../types'
-import { getErrorMessage } from '../../utils/format'
+import { formatBytes, getErrorMessage } from '../../utils/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -21,6 +22,23 @@ function percent(done: number, total: number) {
     return 0
   }
   return Math.round((done / total) * 100)
+}
+
+function storagePercent(used: number, quota: number) {
+  if (quota <= 0) {
+    return 0
+  }
+  return Math.min(100, (used / quota) * 100)
+}
+
+function storageLevel(pct: number): 'ok' | 'warning' | 'critical' {
+  if (pct >= 90) {
+    return 'critical'
+  }
+  if (pct >= 70) {
+    return 'warning'
+  }
+  return 'ok'
 }
 
 export function OverviewPage() {
@@ -83,6 +101,8 @@ export function OverviewPage() {
               </CardContent>
             </Card>
           </div>
+
+          <StorageUsage overview={overview} />
 
           <Card className="mb-4">
             <CardHeader>
@@ -179,5 +199,88 @@ export function OverviewPage() {
         </>
       )}
     </section>
+  )
+}
+
+function formatQuota(bytes: number): string {
+  const gb = bytes / (1024 * 1024 * 1024)
+  if (Math.abs(gb - Math.round(gb)) < 0.01) {
+    return `${Math.round(gb)} GB`
+  }
+  return formatBytes(bytes)
+}
+
+function formatStoragePercent(pct: number, used: number): string {
+  if (used <= 0 || pct <= 0) {
+    return '0%'
+  }
+  if (pct < 0.1) {
+    return '< 0,1%'
+  }
+  if (pct < 1) {
+    return `${pct.toFixed(1).replace('.', ',')}%`
+  }
+  return `${Math.round(pct)}%`
+}
+
+function StorageUsage({ overview }: { overview: Overview }) {
+  const used = overview.storage_used_bytes
+  const quota = overview.storage_quota_bytes
+  const pct = storagePercent(used, quota)
+  const level = storageLevel(pct)
+  const quotaLabel = formatQuota(quota)
+  const pctLabel = formatStoragePercent(pct, used)
+  const fileLabel =
+    overview.storage_file_count === 1
+      ? '1 anexo'
+      : `${overview.storage_file_count} anexos`
+
+  return (
+    <Card
+      className={cn(
+        'mb-4',
+        level === 'critical' && 'border-[rgba(255,107,107,0.35)]',
+        level === 'warning' && 'border-[rgba(255,196,92,0.35)]',
+      )}
+    >
+      <CardHeader>
+        <CardTitle className="text-[1.05rem] font-semibold">Armazenamento</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <strong className="text-[1.35rem] leading-[1.1] tracking-[-0.03em]">
+            {formatBytes(used)} de {quotaLabel}
+          </strong>
+          <span className="text-muted-foreground">
+            {pctLabel} · {fileLabel}
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-white/6" aria-hidden="true">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all',
+              level === 'critical' && 'bg-destructive',
+              level === 'warning' && 'bg-[rgba(255,196,92,0.85)]',
+              level === 'ok' && 'bg-[rgba(110,168,255,0.65)]',
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {level === 'ok' ? (
+          <p className="text-muted-foreground">
+            Cota definida para o WorkHub ({quotaLabel}). Não reserva espaço no disco da VPS.
+          </p>
+        ) : (
+          <p
+            className={cn(
+              level === 'critical' ? 'text-destructive' : 'text-[rgb(232,176,70)]',
+            )}
+          >
+            Você usou {pctLabel} de {quotaLabel} reservados.
+            {level === 'critical' ? ' Considere remover anexos antigos ou aumentar a cota.' : ''}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }

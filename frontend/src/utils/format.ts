@@ -42,6 +42,19 @@ export function initials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1).replace('.', ',')} KB`
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2).replace('.', ',')} GB`
+}
+
 export function getErrorMessage(error: unknown, fallback = 'Ocorreu um erro.'): string {
   if (typeof error === 'object' && error !== null && 'response' in error) {
     const response = (error as { response?: { data?: { message?: string } } }).response

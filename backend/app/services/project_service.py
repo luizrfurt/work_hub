@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.core.permissions import is_admin, require_admin
 from app.models.project import Project
@@ -162,6 +163,9 @@ class ProjectService:
 
         total = sum(totals.values())
         active = totals[TaskStatus.TODO] + totals[TaskStatus.IN_PROGRESS]
+        used_bytes, file_count = self.messages.sum_attachment_usage_for_organization(
+            actor.organization_id
+        )
         return OverviewPublic(
             project_count=len(overview_projects),
             people_count=self.projects.count_distinct_members_for_organization(
@@ -172,6 +176,9 @@ class ProjectService:
             done=totals[TaskStatus.DONE],
             active=active,
             total=total,
+            storage_used_bytes=used_bytes,
+            storage_quota_bytes=get_settings().storage_quota_bytes,
+            storage_file_count=file_count,
             projects=overview_projects,
             contributors=contributors,
         )

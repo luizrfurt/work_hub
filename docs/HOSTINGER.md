@@ -77,6 +77,7 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 
 UPLOAD_MAX_SIZE_MB=10
 UPLOAD_DIRECTORY=/app/uploads
+STORAGE_QUOTA_GB=10
 
 DB_POOL_SIZE=5
 DB_MAX_OVERFLOW=10
@@ -89,6 +90,7 @@ FRONTEND_URL=https://workhub.zioncor.com.br
 | Variável | Observação |
 |----------|------------|
 | `JWT_SECRET_KEY` | String longa e aleatória. Nunca use `change-me`. |
+| `STORAGE_QUOTA_GB` | Cota de gestão exibida no dashboard do admin (padrão 10). **Não** reserva disco na VPS. |
 | `backend/.env` | `chmod 600`. **Nunca** commit no Git. |
 
 Default do Postgres no Compose: usuário/senha `workhub`, banco `work_hub`. São valores de bootstrap — troque a senha em produção se o VPS for compartilhado.

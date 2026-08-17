@@ -50,6 +50,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=30
 UPLOAD_MAX_SIZE_MB=10
 UPLOAD_DIRECTORY=./uploads
+STORAGE_QUOTA_GB=10
 DB_POOL_SIZE=5
 DB_MAX_OVERFLOW=10
 DB_POOL_TIMEOUT=30
@@ -235,7 +236,7 @@ Cobertura mínima:
 | `ADMIN`        | Administrador  |
 | `COLLABORATOR` | Colaborador    |
 
-O administrador vê os projetos da **própria organização**, cadastra usuários dessa organização, gerencia membros e acompanha o andamento geral (tarefas ativas, concluídas e por pessoa).
+O administrador vê os projetos da **própria organização**, cadastra usuários dessa organização, gerencia membros e acompanha o andamento geral (tarefas ativas, concluídas, por pessoa e o uso da cota de armazenamento `STORAGE_QUOTA_GB`).
 
 O colaborador vê os projetos dos quais participa e, nesses projetos, pode criar projetos e gerenciar tarefas. Só o administrador adiciona ou remove pessoas. Qualquer pessoa altera a própria senha (e entra de novo em seguida).
 

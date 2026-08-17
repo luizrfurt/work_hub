@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.attachment import MessageAttachment
 from app.models.message import Message
+from app.models.project import Project
 
 
 class MessageRepository:
@@ -56,6 +57,20 @@ class MessageRepository:
     def last_message_times(self) -> dict[int, datetime]:
         stmt = select(Message.project_id, func.max(Message.created_at)).group_by(Message.project_id)
         return {int(project_id): created_at for project_id, created_at in self.db.execute(stmt)}
+
+    def sum_attachment_usage_for_organization(self, organization_id: int) -> tuple[int, int]:
+        stmt = (
+            select(
+                func.coalesce(func.sum(MessageAttachment.size), 0),
+                func.count(MessageAttachment.id),
+            )
+            .select_from(MessageAttachment)
+            .join(Message, Message.id == MessageAttachment.message_id)
+            .join(Project, Project.id == Message.project_id)
+            .where(Project.organization_id == organization_id)
+        )
+        used_bytes, file_count = self.db.execute(stmt).one()
+        return int(used_bytes), int(file_count)
 
     def list_attachment_keys_for_project(self, project_id: int) -> list[str]:
         stmt = (

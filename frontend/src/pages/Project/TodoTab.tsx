@@ -451,15 +451,28 @@ function TaskCard({
     setStatus(task.status)
   }, [task])
 
-  async function handleAttach(file: File) {
-    if (isOverUploadLimit(file.size)) {
+  async function handleAttach(files: File[]) {
+    const accepted = files.filter((file) => !isOverUploadLimit(file.size))
+    const rejected = files.length - accepted.length
+    if (accepted.length === 0) {
       onError('Arquivo excede o limite de 5 MB.')
       return
     }
     setAttaching(true)
     onError('')
     try {
-      onTaskChange(await uploadTaskAttachment(projectId, task.id, file))
+      let latest = task
+      for (const file of accepted) {
+        latest = await uploadTaskAttachment(projectId, task.id, file)
+        onTaskChange(latest)
+      }
+      if (rejected > 0) {
+        onError(
+          rejected === 1
+            ? '1 arquivo acima de 5 MB foi ignorado.'
+            : `${rejected} arquivos acima de 5 MB foram ignorados.`,
+        )
+      }
     } catch (err) {
       onError(getErrorMessage(err, 'Não foi possível enviar o arquivo.'))
     } finally {
@@ -534,7 +547,7 @@ function TaskCard({
                 size="sm"
                 className="mt-2 w-fit"
                 disabled={attaching}
-                title={UPLOAD_HINT}
+                title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
                 onClick={() => fileRef.current?.click()}
               >
                 {attaching ? 'Enviando...' : 'Anexar'}
@@ -543,11 +556,12 @@ function TaskCard({
                 ref={fileRef}
                 type="file"
                 accept={UPLOAD_ACCEPT}
+                multiple
                 hidden
                 onChange={(event) => {
-                  const file = event.target.files?.[0]
-                  if (file) {
-                    void handleAttach(file)
+                  const files = Array.from(event.target.files ?? [])
+                  if (files.length > 0) {
+                    void handleAttach(files)
                     event.target.value = ''
                   }
                 }}
@@ -616,11 +630,12 @@ function TaskCard({
         ref={fileRef}
         type="file"
         accept={UPLOAD_ACCEPT}
+        multiple
         hidden
         onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) {
-            void handleAttach(file)
+          const files = Array.from(event.target.files ?? [])
+          if (files.length > 0) {
+            void handleAttach(files)
             event.target.value = ''
           }
         }}
@@ -635,7 +650,7 @@ function TaskCard({
           type="button"
           className="w-fit"
           disabled={attaching}
-          title={UPLOAD_HINT}
+          title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
           onClick={() => fileRef.current?.click()}
         >
           {attaching ? 'Enviando...' : 'Anexar'}
@@ -661,14 +676,14 @@ function TaskAttachments({
     return null
   }
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-1">
       {attachments.map((attachment) => (
-        <div key={attachment.id} className="flex flex-wrap items-start gap-2">
+        <div key={attachment.id} className="flex min-w-0 items-center gap-2">
           <AttachmentView
             url={taskAttachmentUrl(projectId, task.id, attachment.id)}
             mimeType={attachment.mime_type}
             name={attachment.original_name}
-            imageClassName="max-w-[160px] my-0"
+            compact
           />
           {canRemove && onRemove && (
             <Button

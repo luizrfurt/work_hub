@@ -8,11 +8,13 @@ export function AttachmentView({
   mimeType,
   name,
   imageClassName,
+  compact = false,
 }: {
   url: string
   mimeType: string
   name: string
   imageClassName?: string
+  compact?: boolean
 }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
 
@@ -44,7 +46,7 @@ export function AttachmentView({
     }
   }, [url])
 
-  if (mimeType.startsWith('image/')) {
+  if (!compact && mimeType.startsWith('image/')) {
     return objectUrl ? (
       <img
         className={cn('my-[0.45rem] block max-w-[260px] rounded-[10px]', imageClassName)}
@@ -57,10 +59,16 @@ export function AttachmentView({
   }
 
   return objectUrl ? (
-    <a className="text-primary underline" href={objectUrl} download={name}>
+    <a
+      className={cn('text-primary underline', compact && 'min-w-0 truncate text-[0.9rem]')}
+      href={objectUrl}
+      download={name}
+    >
       {name}
     </a>
   ) : (
-    <span className="text-muted-foreground">{name}</span>
+    <span className={cn('text-muted-foreground', compact && 'min-w-0 truncate text-[0.9rem]')}>
+      {name}
+    </span>
   )
 }

@@ -77,6 +77,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
   const [onlyMine, setOnlyMine] = useState(false)
   const [creatingIn, setCreatingIn] = useState<TaskStatus | null>(null)
   const [draggingId, setDraggingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null)
   const [overCard, setOverCard] = useState<{ taskId: number; after: boolean } | null>(null)
 
@@ -156,13 +157,13 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (draggingId) {
+      if (draggingId || editingId) {
         return
       }
       void listTasks(projectId).then((items) => setTasks(items))
     }, connected ? 8000 : 2500)
     return () => window.clearInterval(timer)
-  }, [projectId, connected, draggingId])
+  }, [projectId, connected, draggingId, editingId])
 
   async function handleCreate(
     status: TaskStatus,
@@ -416,6 +417,14 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                     onUploaded={() => void refreshStorage()}
                     canDelete={isAdmin}
                     canManage={canManageTask(task)}
+                    onEditingChange={(open) => {
+                      setEditingId((current) => {
+                        if (open) {
+                          return task.id
+                        }
+                        return current === task.id ? null : current
+                      })
+                    }}
                     onDelete={() => void handleDelete(task)}
                   />
                 ))}
@@ -538,6 +547,7 @@ function TaskCard({
   onUploaded,
   canDelete,
   canManage,
+  onEditingChange,
   onDelete,
 }: {
   projectId: string
@@ -562,6 +572,7 @@ function TaskCard({
   onUploaded: () => void
   canDelete: boolean
   canManage: boolean
+  onEditingChange: (open: boolean) => void
   onDelete: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -576,18 +587,34 @@ function TaskCard({
   const [pendingDelete, setPendingDelete] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const skipClick = useRef(false)
+  const onEditingChangeRef = useRef(onEditingChange)
+  onEditingChangeRef.current = onEditingChange
+
+  function setEditingOpen(open: boolean) {
+    setEditing(open)
+    onEditingChange(open)
+  }
 
   useEffect(() => {
+    return () => {
+      onEditingChangeRef.current(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (editing) {
+      return
+    }
     setTitle(task.title)
     setDescription(task.description ?? '')
     setDueDate(task.due_date ?? '')
     setAssignedUserId(task.assigned_user_id)
     setStatus(task.status)
-  }, [task])
+  }, [task, editing])
 
   useEffect(() => {
     if (!canManage) {
-      setEditing(false)
+      setEditingOpen(false)
     }
   }, [canManage])
 
@@ -729,12 +756,12 @@ function TaskCard({
                     assigned_user_id: assignedUserId,
                     status,
                   })
-                  setEditing(false)
+                  setEditingOpen(false)
                 }}
               >
                 Salvar
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+              <Button type="button" variant="ghost" onClick={() => setEditingOpen(false)}>
                 Cancelar
               </Button>
               {canDelete && (
@@ -839,7 +866,7 @@ function TaskCard({
         if ((event.target as HTMLElement).closest('button, a, input')) {
           return
         }
-        setEditing(true)
+        setEditingOpen(true)
       }}
     >
       <div className="flex min-w-0 items-center gap-1">
@@ -855,7 +882,7 @@ function TaskCard({
             type="button"
             title="Editar"
             aria-label="Editar"
-            onClick={() => setEditing(true)}
+            onClick={() => setEditingOpen(true)}
           >
             <Pencil />
           </Button>

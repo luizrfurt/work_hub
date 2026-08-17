@@ -1,3 +1,4 @@
+import { Pencil } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 
 import { createUser, listUsers, updateUser } from '../../api/users'
@@ -268,8 +269,15 @@ export function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" type="button" onClick={() => startEdit(item)}>
-                      Editar
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      type="button"
+                      title="Editar"
+                      aria-label={`Editar ${item.name}`}
+                      onClick={() => startEdit(item)}
+                    >
+                      <Pencil />
                     </Button>
                   </TableCell>
                 </TableRow>

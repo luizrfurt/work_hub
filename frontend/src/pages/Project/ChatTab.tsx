@@ -1,3 +1,4 @@
+import { Paperclip, Send } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { listMessages, sendMessage, uploadAttachment } from '../../api/messages'
@@ -187,13 +188,23 @@ export function ChatTab({ projectId }: ChatTabProps) {
           <Button
             variant="ghost"
             type="button"
+            size="icon"
+            className="size-10"
             title={UPLOAD_HINT}
+            aria-label="Anexar"
             onClick={() => fileRef.current?.click()}
           >
-            Anexar
+            <Paperclip />
           </Button>
-          <Button type="submit" disabled={sending}>
-            Enviar
+          <Button
+            type="submit"
+            size="icon"
+            className="size-10"
+            disabled={sending}
+            title="Enviar"
+            aria-label="Enviar"
+          >
+            <Send />
           </Button>
         </form>
       </div>

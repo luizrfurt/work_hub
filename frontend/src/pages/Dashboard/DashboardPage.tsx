@@ -1,3 +1,4 @@
+import { Pencil, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -139,18 +140,22 @@ export function DashboardPage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    title="Editar"
+                    aria-label="Editar"
                     onClick={() => setEditing(project)}
                   >
-                    Editar
+                    <Pencil />
                   </Button>
                   <Button
                     type="button"
                     variant="destructive"
-                    size="sm"
+                    size="icon-sm"
+                    title="Excluir"
+                    aria-label="Excluir"
                     onClick={() => setDeleting(project)}
                   >
-                    Excluir
+                    <Trash2 />
                   </Button>
                 </div>
               )}

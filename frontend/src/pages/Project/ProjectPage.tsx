@@ -1,3 +1,4 @@
+import { Pencil, Trash2, UserPlus } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -183,11 +184,25 @@ function ProjectWorkspace({
           <div className="flex flex-wrap items-center gap-2">
             {isAdmin && project && (
               <>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
-                  Editar
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Editar"
+                  aria-label="Editar"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil />
                 </Button>
-                <Button type="button" variant="destructive" size="sm" onClick={() => setDeleting(true)}>
-                  Excluir
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon-sm"
+                  title="Excluir"
+                  aria-label="Excluir"
+                  onClick={() => setDeleting(true)}
+                >
+                  <Trash2 />
                 </Button>
               </>
             )}
@@ -258,10 +273,12 @@ function ProjectWorkspace({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon-sm"
+                        title="Remover"
+                        aria-label={`Remover ${member.name}`}
                         onClick={() => void onRemove(member.user_id)}
                       >
-                        Remover
+                        <Trash2 />
                       </Button>
                     </li>
                   ))}
@@ -285,8 +302,15 @@ function ProjectWorkspace({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button type="submit" disabled={!selectedUserId}>
-                    Adicionar
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="size-10"
+                    disabled={!selectedUserId}
+                    title="Adicionar"
+                    aria-label="Adicionar membro"
+                  >
+                    <UserPlus />
                   </Button>
                 </form>
               </CardContent>

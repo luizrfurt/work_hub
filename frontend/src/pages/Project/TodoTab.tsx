@@ -1,3 +1,4 @@
+import { Paperclip, Pencil, Plus, Trash2 } from 'lucide-react'
 import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { createTask, deleteTaskAttachment, listTasks, updateTask, uploadTaskAttachment } from '../../api/tasks'
@@ -248,9 +249,11 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                   type="button"
                   variant="ghost"
                   className="mb-[0.7rem] w-full shrink-0 border-dashed text-muted-foreground"
+                  title="Adicionar cartão"
+                  aria-label="Adicionar cartão"
                   onClick={() => setCreatingIn(status)}
                 >
-                  + Adicionar cartão
+                  <Plus />
                 </Button>
               )}
               <div className="min-h-0 flex-1 overflow-y-auto max-[800px]:overflow-visible">
@@ -544,13 +547,14 @@ function TaskCard({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="mt-2 w-fit"
+                size="icon-sm"
+                className="mt-2"
                 disabled={attaching}
                 title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
+                aria-label="Anexar"
                 onClick={() => fileRef.current?.click()}
               >
-                {attaching ? 'Enviando...' : 'Anexar'}
+                <Paperclip />
               </Button>
               <input
                 ref={fileRef}
@@ -641,19 +645,26 @@ function TaskCard({
         }}
       />
       <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" type="button" className="w-fit" onClick={() => setEditing(true)}>
-          Editar
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          type="button"
+          title="Editar"
+          aria-label="Editar"
+          onClick={() => setEditing(true)}
+        >
+          <Pencil />
         </Button>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon-sm"
           type="button"
-          className="w-fit"
           disabled={attaching}
           title={`${UPLOAD_HINT}. Dá para escolher vários arquivos de uma vez.`}
+          aria-label="Anexar"
           onClick={() => fileRef.current?.click()}
         >
-          {attaching ? 'Enviando...' : 'Anexar'}
+          <Paperclip />
         </Button>
       </div>
     </article>
@@ -689,11 +700,13 @@ function TaskAttachments({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-muted-foreground"
+              size="icon-xs"
+              className="text-muted-foreground"
+              title="Remover"
+              aria-label={`Remover ${attachment.original_name}`}
               onClick={() => onRemove(attachment.id)}
             >
-              Remover
+              <Trash2 />
             </Button>
           )}
         </div>

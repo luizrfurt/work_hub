@@ -85,11 +85,13 @@ class MessageService:
     ) -> MessagePublic:
         project = self.project_service.assert_can_access(project_id, actor)
         message = self._require_own_message(project_id, message_id, actor, "editar")
-        text = content.strip()
+        text = content.strip() or None
         if not text and not message.attachments:
             raise AppError("A mensagem não pode ficar vazia.")
-        message.content = text or None
-        message.updated_at = datetime.now(timezone.utc)
+        if text != message.content:
+            message.previous_content = message.content
+            message.content = text
+            message.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         stored = self.messages.get_by_id(message.id)
         assert stored is not None
@@ -97,20 +99,18 @@ class MessageService:
         self._broadcast_message(project.id, public)
         return public
 
-    def delete_message(self, project_id: int, message_id: int, actor: User) -> None:
+    def delete_message(self, project_id: int, message_id: int, actor: User) -> MessagePublic:
         project = self.project_service.assert_can_access(project_id, actor)
         message = self._require_own_message(project_id, message_id, actor, "excluir")
-        storage_keys = [item.storage_key for item in message.attachments or []]
-        self.messages.delete(message)
+        now = datetime.now(timezone.utc)
+        message.deleted_at = now
+        message.updated_at = now
         self.db.commit()
-        for storage_key in storage_keys:
-            try:
-                storage.delete(storage_key)
-            except ValueError:
-                continue
-        connection_manager.broadcast_nowait(
-            project.id, {"type": "message_deleted", "payload": {"id": message_id}}
-        )
+        stored = self.messages.get_by_id(message.id)
+        assert stored is not None
+        public = self._to_public(stored)
+        self._broadcast_message(project.id, public)
+        return public
 
     def get_attachment_for_download(
         self, project_id: int, attachment_id: int, actor: User
@@ -120,7 +120,7 @@ class MessageService:
         if attachment is None:
             raise AppError("Anexo não encontrado.", status_code=404)
         message = self.messages.get_by_id(attachment.message_id)
-        if message is None or message.project_id != project_id:
+        if message is None or message.project_id != project_id or message.deleted_at is not None:
             raise AppError("Anexo não encontrado.", status_code=404)
         return attachment
 
@@ -152,16 +152,21 @@ class MessageService:
             raise NotFoundError("Mensagem não encontrada.")
         if message.user_id != actor.id:
             raise ForbiddenError(f"Você só pode {action} as próprias mensagens.")
+        if message.deleted_at is not None:
+            raise AppError("Esta mensagem já foi excluída.")
         return message
 
     def _to_public(self, message: Message) -> MessagePublic:
+        deleted = message.deleted_at is not None
         return MessagePublic(
             id=message.id,
             project_id=message.project_id,
             user_id=message.user_id,
             author_name=message.author.name if message.author else "",
-            content=message.content,
-            attachments=[
+            content=None if deleted else message.content,
+            attachments=[]
+            if deleted
+            else [
                 AttachmentPublic(
                     id=item.id,
                     original_name=item.original_name,
@@ -173,4 +178,5 @@ class MessageService:
             ],
             created_at=message.created_at,
             updated_at=message.updated_at,
+            deleted_at=message.deleted_at,
         )

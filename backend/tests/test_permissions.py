@@ -185,6 +185,20 @@ def test_author_can_edit_and_delete_own_message(client, unique):
     assert edited.status_code == 200, edited.text
     assert edited.json()["content"] == "Texto corrigido"
     assert edited.json()["updated_at"] >= edited.json()["created_at"]
+    assert "previous_content" not in edited.json()
+
+    from app.database.connection import SessionLocal
+    from app.models.message import Message
+
+    db = SessionLocal()
+    try:
+        stored = db.get(Message, message["id"])
+        assert stored is not None
+        assert stored.content == "Texto corrigido"
+        assert stored.previous_content == "Texto original"
+        assert stored.deleted_at is None
+    finally:
+        db.close()
 
     forbidden_delete = client.delete(
         f"/projects/{project['id']}/messages/{message['id']}",
@@ -196,13 +210,31 @@ def test_author_can_edit_and_delete_own_message(client, unique):
         f"/projects/{project['id']}/messages/{message['id']}",
         headers=auth_header(author["access_token"]),
     )
-    assert deleted.status_code == 204, deleted.text
+    assert deleted.status_code == 200, deleted.text
+    body = deleted.json()
+    assert body["id"] == message["id"]
+    assert body["deleted_at"] is not None
+    assert body["content"] is None
+    assert body["attachments"] == []
 
     listed = client.get(
         f"/projects/{project['id']}/messages",
         headers=auth_header(author["access_token"]),
     ).json()
-    assert message["id"] not in {item["id"] for item in listed["items"]}
+    tombstone = next(item for item in listed["items"] if item["id"] == message["id"])
+    assert tombstone["deleted_at"] is not None
+    assert tombstone["content"] is None
+    assert "previous_content" not in tombstone
+
+    db = SessionLocal()
+    try:
+        stored = db.get(Message, message["id"])
+        assert stored is not None
+        assert stored.deleted_at is not None
+        assert stored.content == "Texto corrigido"
+        assert stored.previous_content == "Texto original"
+    finally:
+        db.close()
 
 
 def test_outsider_cannot_access_tasks(client, unique):

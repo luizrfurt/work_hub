@@ -31,8 +31,9 @@ export async function updateMessage(
 export async function deleteMessage(
   projectId: number | string,
   messageId: number | string,
-): Promise<void> {
-  await api.delete(`/projects/${projectId}/messages/${messageId}`)
+): Promise<Message> {
+  const { data } = await api.delete<Message>(`/projects/${projectId}/messages/${messageId}`)
+  return data
 }
 
 export async function uploadAttachment(

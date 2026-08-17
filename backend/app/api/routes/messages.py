@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -46,15 +46,14 @@ def update_message(
     )
 
 
-@router.delete("/messages/{message_id}", status_code=204)
+@router.delete("/messages/{message_id}", response_model=MessagePublic)
 def delete_message(
     project_id: int,
     message_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Response:
-    MessageService(db).delete_message(project_id, message_id, current_user)
-    return Response(status_code=204)
+) -> MessagePublic:
+    return MessageService(db).delete_message(project_id, message_id, current_user)
 
 
 @router.post("/attachments", response_model=MessagePublic, status_code=201)

@@ -11,7 +11,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationsContext'
 import {
   useProjectRealtime,
-  useRealtimeMessageDeleted,
   useRealtimeMessages,
 } from '../../contexts/ProjectRealtimeContext'
 import { useOrgStorage } from '../../hooks/useOrgStorage'
@@ -73,20 +72,8 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setMessages((current) => mergeMessages(current, [message]))
   }, [])
 
-  const removeMessage = useCallback((messageId: number) => {
-    setMessages((current) => {
-      if (!current.some((item) => item.id === messageId)) {
-        return current
-      }
-      skipScrollRef.current = true
-      setTotal((value) => Math.max(0, value - 1))
-      return current.filter((item) => item.id !== messageId)
-    })
-  }, [])
-
   const { send } = useProjectRealtime()
   const connected = useRealtimeMessages(appendMessage)
-  useRealtimeMessageDeleted(removeMessage)
 
   useEffect(() => {
     let active = true
@@ -243,11 +230,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
   async function handleDelete(message: Message) {
     setError('')
     try {
-      await deleteMessage(projectId, message.id)
-      removeMessage(message.id)
-      if (message.attachments.length > 0) {
-        await refreshStorage()
-      }
+      appendMessage(await deleteMessage(projectId, message.id))
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível excluir a mensagem.'))
     }
@@ -408,6 +391,8 @@ function ChatBubble({
     setEditing(false)
   }
 
+  const deleted = Boolean(message.deleted_at)
+
   return (
     <article
       className={cn(
@@ -422,6 +407,7 @@ function ChatBubble({
           mine
             ? 'rounded-br-[6px] border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.14)]'
             : 'rounded-bl-[6px]',
+          deleted && 'opacity-70',
         )}
       >
         <header className="mb-[0.2rem] flex items-center justify-between gap-2">
@@ -429,9 +415,9 @@ function ChatBubble({
           <span className="flex shrink-0 items-center gap-0.5">
             <time className="whitespace-nowrap text-[0.72rem] text-muted-foreground">
               {formatDateTime(message.created_at)}
-              {isEdited(message.created_at, message.updated_at) ? ' · editada' : ''}
+              {!deleted && isEdited(message.created_at, message.updated_at) ? ' · editada' : ''}
             </time>
-            {mine && !editing && (
+            {mine && !editing && !deleted && (
               <>
                 <Button
                   type="button"
@@ -457,7 +443,9 @@ function ChatBubble({
             )}
           </span>
         </header>
-        {editing ? (
+        {deleted ? (
+          <p className="italic text-muted-foreground">Mensagem excluída</p>
+        ) : editing ? (
           <div className="grid gap-2">
             <Textarea
               value={draft}
@@ -496,19 +484,20 @@ function ChatBubble({
         ) : (
           message.content && <p className="whitespace-pre-wrap">{message.content}</p>
         )}
-        {message.attachments.map((attachment) => (
-          <AttachmentView
-            key={attachment.id}
-            url={attachmentUrl(projectId, attachment.id)}
-            mimeType={attachment.mime_type}
-            name={attachment.original_name}
-          />
-        ))}
+        {!deleted &&
+          message.attachments.map((attachment) => (
+            <AttachmentView
+              key={attachment.id}
+              url={attachmentUrl(projectId, attachment.id)}
+              mimeType={attachment.mime_type}
+              name={attachment.original_name}
+            />
+          ))}
       </div>
       <ConfirmDialog
         open={pendingDelete}
         title="Excluir mensagem"
-        description="Excluir esta mensagem? Anexos enviados nela também serão apagados."
+        description="A conversa vai mostrar que a mensagem foi excluída. O conteúdo sai da tela."
         confirmLabel="Excluir"
         onOpenChange={setPendingDelete}
         onConfirm={() => {

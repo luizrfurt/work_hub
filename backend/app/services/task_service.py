@@ -4,7 +4,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ForbiddenError, NotFoundError
-from app.core.permissions import require_admin
+from app.core.permissions import is_admin, require_admin
 from app.core.uploads import validate_upload
 from app.models.task import Task, TaskStatus
 from app.models.task_attachment import TaskAttachment
@@ -67,6 +67,7 @@ class TaskService:
     ) -> TaskPublic:
         self.project_service.assert_can_access(project_id, actor)
         task = self._get_task_in_project(project_id, task_id)
+        self._assert_can_manage(task, actor)
 
         if payload.title is not None:
             task.title = payload.title.strip()
@@ -124,6 +125,7 @@ class TaskService:
     ) -> TaskPublic:
         self.project_service.assert_can_access(project_id, actor)
         task = self._get_task_in_project(project_id, task_id)
+        self._assert_can_manage(task, actor)
         data = file.file.read()
         mime_type, original_name = validate_upload(file, data)
         storage_key = f"{project_id}/{uuid4()}_{original_name}"
@@ -160,6 +162,8 @@ class TaskService:
         self, project_id: int, task_id: int, attachment_id: int, actor: User
     ) -> TaskPublic:
         attachment = self.get_attachment_for_download(project_id, task_id, attachment_id, actor)
+        task = self._get_task_in_project(project_id, task_id)
+        self._assert_can_manage(task, actor)
         storage_key = attachment.storage_key
         self.tasks.delete_attachment(attachment)
         self.db.commit()
@@ -220,6 +224,11 @@ class TaskService:
     def _assert_assignee_is_member(self, project_id: int, user_id: int) -> None:
         if not self.projects.is_member(project_id, user_id):
             raise ForbiddenError("O responsável precisa participar do projeto.")
+
+    def _assert_can_manage(self, task: Task, actor: User) -> None:
+        if is_admin(actor) or task.assigned_user_id == actor.id:
+            return
+        raise ForbiddenError("Somente o administrador ou o responsável podem alterar esta tarefa.")
 
     def _broadcast(self, project_id: int, task: TaskPublic) -> None:
         connection_manager.broadcast_nowait(

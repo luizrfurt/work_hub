@@ -336,7 +336,7 @@ def test_cannot_assign_task_to_non_member(client, unique):
     assert "participar do projeto" in response.json()["message"]
 
 
-def test_collaborator_can_manage_any_task_in_project(client, unique):
+def test_only_admin_or_assignee_can_manage_task(client, unique):
     admin = register_admin(client, unique)
     owner = create_collaborator(client, admin["access_token"], unique, "own")
     other = create_collaborator(client, admin["access_token"], unique, "oth")
@@ -363,14 +363,21 @@ def test_collaborator_can_manage_any_task_in_project(client, unique):
     assert created.status_code == 201, created.text
     task = created.json()
 
-    response = client.patch(
+    forbidden = client.patch(
         f"/projects/{project['id']}/tasks/{task['id']}",
         json={"title": "Tarefa atualizada", "status": "DONE"},
         headers=auth_header(other["access_token"]),
     )
-    assert response.status_code == 200, response.text
-    assert response.json()["title"] == "Tarefa atualizada"
-    assert response.json()["status"] == "DONE"
+    assert forbidden.status_code == 403
+
+    by_owner = client.patch(
+        f"/projects/{project['id']}/tasks/{task['id']}",
+        json={"title": "Tarefa atualizada", "status": "DONE"},
+        headers=auth_header(owner["access_token"]),
+    )
+    assert by_owner.status_code == 200, by_owner.text
+    assert by_owner.json()["title"] == "Tarefa atualizada"
+    assert by_owner.json()["status"] == "DONE"
 
 
 def test_admin_can_manage_task(client, unique):

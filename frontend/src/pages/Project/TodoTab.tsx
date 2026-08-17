@@ -101,6 +101,10 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
     return tasks.filter((task) => task.status === status).slice().sort(byBoardOrder)
   }
 
+  function canManageTask(task: Task) {
+    return isAdmin || task.assigned_user_id === user?.id
+  }
+
   function visibleColumn(status: TaskStatus) {
     const column = columnTasks(status)
     if (!onlyMine) {
@@ -182,6 +186,10 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
   }
 
   async function placeTask(task: Task, status: TaskStatus, index: number) {
+    if (!canManageTask(task)) {
+      setError('Somente o administrador ou o responsável podem mover esta tarefa.')
+      return
+    }
     const currentIndex = columnTasks(task.status).findIndex((item) => item.id === task.id)
     if (task.status === status && currentIndex === index) {
       return
@@ -407,6 +415,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                     onGuardUpload={guardUpload}
                     onUploaded={() => void refreshStorage()}
                     canDelete={isAdmin}
+                    canManage={canManageTask(task)}
                     onDelete={() => void handleDelete(task)}
                   />
                 ))}
@@ -528,6 +537,7 @@ function TaskCard({
   onGuardUpload,
   onUploaded,
   canDelete,
+  canManage,
   onDelete,
 }: {
   projectId: string
@@ -551,6 +561,7 @@ function TaskCard({
   onGuardUpload: (files: File[]) => File[] | null
   onUploaded: () => void
   canDelete: boolean
+  canManage: boolean
   onDelete: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -573,6 +584,12 @@ function TaskCard({
     setAssignedUserId(task.assigned_user_id)
     setStatus(task.status)
   }, [task])
+
+  useEffect(() => {
+    if (!canManage) {
+      setEditing(false)
+    }
+  }, [canManage])
 
   async function handleAttach(files: File[]) {
     const accepted = onGuardUpload(files)
@@ -610,7 +627,9 @@ function TaskCard({
       event.preventDefault()
       event.stopPropagation()
       setFileOver(false)
-      void handleAttach(files)
+      if (canManage) {
+        void handleAttach(files)
+      }
       return
     }
     onDropCard(event)
@@ -665,9 +684,11 @@ function TaskCard({
               <TaskAttachments
                 projectId={projectId}
                 task={task}
-                canRemove
+                canRemove={canManage}
                 onRemove={(attachment) => setPendingRemove(attachment)}
               />
+              {canManage && (
+                <>
               <Button
                 type="button"
                 variant="ghost"
@@ -694,6 +715,8 @@ function TaskCard({
                   }
                 }}
               />
+                </>
+              )}
             </Field>
             <div className="flex gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1">
               <Button
@@ -763,15 +786,19 @@ function TaskCard({
   return (
     <article
       className={cn(
-        'mb-2 grid cursor-grab gap-1 rounded-[12px] border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%),var(--card)] px-3 py-2.5 hover:border-[rgba(110,168,255,0.28)]',
+        'mb-2 grid gap-1 rounded-[12px] border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%),var(--card)] px-3 py-2.5 hover:border-[rgba(110,168,255,0.28)]',
+        canManage ? 'cursor-grab' : 'cursor-default',
         dragging && 'cursor-grabbing opacity-45',
         dropEdge === 'before' && 'shadow-[0_-3px_0_var(--primary)]',
         dropEdge === 'after' && 'shadow-[0_3px_0_var(--primary)]',
         fileOver && 'border-[rgba(110,168,255,0.55)] bg-[rgba(110,168,255,0.08)]',
       )}
-      draggable
+      draggable={canManage}
       onDragOver={(event) => {
         if (isFileDrag(event)) {
+          if (!canManage) {
+            return
+          }
           event.preventDefault()
           event.stopPropagation()
           event.dataTransfer.dropEffect = 'copy'
@@ -787,7 +814,7 @@ function TaskCard({
       }}
       onDrop={handleCardDrop}
       onDragStart={(event) => {
-        if ((event.target as HTMLElement).closest('button, form, a, input')) {
+        if (!canManage || (event.target as HTMLElement).closest('button, form, a, input')) {
           event.preventDefault()
           return
         }
@@ -806,7 +833,7 @@ function TaskCard({
         }, 200)
       }}
       onClick={(event) => {
-        if (skipClick.current) {
+        if (!canManage || skipClick.current) {
           return
         }
         if ((event.target as HTMLElement).closest('button, a, input')) {
@@ -820,6 +847,8 @@ function TaskCard({
           {task.title}
         </h4>
         <div className="flex shrink-0">
+          {canManage && (
+            <>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -841,6 +870,8 @@ function TaskCard({
           >
             <Paperclip />
           </Button>
+            </>
+          )}
           {canDelete && (
             <Button
               variant="ghost"
@@ -872,7 +903,7 @@ function TaskCard({
       <TaskAttachments
         projectId={projectId}
         task={task}
-        canRemove
+        canRemove={canManage}
         onRemove={(attachment) => setPendingRemove(attachment)}
       />
       <input

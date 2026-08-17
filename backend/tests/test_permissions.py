@@ -96,6 +96,21 @@ def test_admin_overview_summarizes_tasks(client, unique):
     assert person["todo"] >= 1
 
 
+def test_member_can_read_storage_usage(client, unique):
+    admin = register_admin(client, unique)
+    collab = create_collaborator(client, admin["access_token"], unique)
+
+    forbidden = client.get("/projects/overview", headers=auth_header(collab["access_token"]))
+    assert forbidden.status_code == 403
+
+    usage = client.get("/projects/storage", headers=auth_header(collab["access_token"]))
+    assert usage.status_code == 200, usage.text
+    body = usage.json()
+    assert body["storage_used_bytes"] == 0
+    assert body["storage_file_count"] == 0
+    assert body["storage_quota_bytes"] > 0
+
+
 def test_collaborator_cannot_create_project(client, unique):
     admin = register_admin(client, unique)
     collab = create_collaborator(client, admin["access_token"], unique)

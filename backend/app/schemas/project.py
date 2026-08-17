@@ -60,6 +60,12 @@ class OverviewContributor(BaseModel):
     total: int
 
 
+class StorageUsagePublic(BaseModel):
+    storage_used_bytes: int
+    storage_quota_bytes: int
+    storage_file_count: int
+
+
 class OverviewPublic(BaseModel):
     project_count: int
     people_count: int

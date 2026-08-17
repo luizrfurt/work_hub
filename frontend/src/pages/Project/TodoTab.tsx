@@ -4,12 +4,30 @@ import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useStat
 import { createTask, deleteTaskAttachment, listTasks, updateTask, uploadTaskAttachment } from '../../api/tasks'
 import { taskAttachmentUrl } from '../../api/client'
 import { AttachmentView } from '../../components/AttachmentView'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { Field } from '../../components/Field'
+import { useAuth } from '../../contexts/AuthContext'
 import { useRealtimeTasks } from '../../contexts/ProjectRealtimeContext'
+import { useOrgStorage } from '../../hooks/useOrgStorage'
 import type { ProjectMember, Task, TaskStatus } from '../../types'
-import { formatDate, getErrorMessage, statusBadgeClass, statusColumnClass, statusLabel, statusTitleClass } from '../../utils/format'
-import { isOverUploadLimit, UPLOAD_ACCEPT, UPLOAD_HINT } from '../../utils/uploads'
+import {
+  formatDate,
+  getErrorMessage,
+  isOverdue,
+  statusBadgeClass,
+  statusColumnClass,
+  statusLabel,
+  statusTitleClass,
+} from '../../utils/format'
+import { checkUploadQuota } from '../../utils/quota'
+import {
+  filesFromDataTransfer,
+  isFileDrag,
+  isOverUploadLimit,
+  UPLOAD_ACCEPT,
+  UPLOAD_HINT,
+} from '../../utils/uploads'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -51,8 +69,11 @@ function siblingIndex(
 }
 
 export function TodoTab({ projectId, members }: TodoTabProps) {
+  const { user } = useAuth()
+  const { usage, refresh: refreshStorage } = useOrgStorage()
   const [tasks, setTasks] = useState<Task[]>([])
   const [error, setError] = useState('')
+  const [onlyMine, setOnlyMine] = useState(false)
   const [creatingIn, setCreatingIn] = useState<TaskStatus | null>(null)
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null)
@@ -72,6 +93,43 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
 
   function columnTasks(status: TaskStatus) {
     return tasks.filter((task) => task.status === status).slice().sort(byBoardOrder)
+  }
+
+  function visibleColumn(status: TaskStatus) {
+    const column = columnTasks(status)
+    if (!onlyMine) {
+      return column
+    }
+    return column.filter((task) => task.assigned_user_id === user?.id)
+  }
+
+  function guardUpload(files: File[]): File[] | null {
+    const accepted = files.filter((file) => !isOverUploadLimit(file.size))
+    const rejected = files.length - accepted.length
+    if (accepted.length === 0) {
+      setError('Arquivo excede o limite de 5 MB.')
+      return null
+    }
+    const quota = checkUploadQuota(
+      usage,
+      accepted.reduce((sum, file) => sum + file.size, 0),
+    )
+    if (quota.blocked) {
+      setError(quota.blocked)
+      return null
+    }
+    if (quota.warning) {
+      setError(quota.warning)
+    } else if (rejected > 0) {
+      setError(
+        rejected === 1
+          ? '1 arquivo acima de 5 MB foi ignorado.'
+          : `${rejected} arquivos acima de 5 MB foram ignorados.`,
+      )
+    } else {
+      setError('')
+    }
+    return accepted
   }
 
   async function loadTasks() {
@@ -191,13 +249,25 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[0.55rem]">
       {error && <ErrorAlert>{error}</ErrorAlert>}
-      <p className="mb-0 shrink-0 text-[0.92rem] leading-[1.45] text-muted-foreground">
-        Arraste o card para cima, para baixo ou para outra coluna.
-      </p>
+      <div className="mb-0 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <p className="text-[0.92rem] leading-[1.45] text-muted-foreground">
+          Arraste o card para cima, para baixo ou para outra coluna.
+        </p>
+        <Button
+          type="button"
+          variant={onlyMine ? 'default' : 'ghost'}
+          size="sm"
+          aria-pressed={onlyMine}
+          onClick={() => setOnlyMine((current) => !current)}
+        >
+          Minhas tarefas
+        </Button>
+      </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-3 gap-4 max-[800px]:grid-cols-1 max-[800px]:overflow-y-auto">
         {COLUMNS.map((status) => {
           const column = columnTasks(status)
+          const visible = visibleColumn(status)
           return (
             <section
               key={status}
@@ -208,6 +278,10 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                   'border-[rgba(110,168,255,0.55)] bg-[rgba(110,168,255,0.08)]',
               )}
               onDragOver={(event) => {
+                if (isFileDrag(event)) {
+                  event.preventDefault()
+                  return
+                }
                 event.preventDefault()
                 setOverStatus(status)
               }}
@@ -220,6 +294,10 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 event.preventDefault()
                 setOverStatus(null)
                 setOverCard(null)
+                if (filesFromDataTransfer(event.dataTransfer).length > 0) {
+                  setDraggingId(null)
+                  return
+                }
                 const task = readDraggedTask(event)
                 if (task) {
                   void placeTask(task, status, column.filter((item) => item.id !== task.id).length)
@@ -233,7 +311,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                   variant="outline"
                   className={cn('h-6 min-w-6 rounded-full px-1.5', statusBadgeClass(status))}
                 >
-                  {column.length}
+                  {visible.length}
                 </Badge>
               </h3>
               {creatingIn === status && (
@@ -257,7 +335,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 </Button>
               )}
               <div className="min-h-0 flex-1 overflow-y-auto max-[800px]:overflow-visible">
-                {column.map((task) => (
+                {visible.map((task) => (
                   <TaskCard
                     key={task.id}
                     projectId={projectId}
@@ -274,6 +352,11 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                       setOverCard(null)
                     }}
                     onDragOverCard={(event) => {
+                      if (isFileDrag(event)) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        return
+                      }
                       event.preventDefault()
                       event.stopPropagation()
                       const rect = event.currentTarget.getBoundingClientRect()
@@ -282,6 +365,10 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                       setOverCard({ taskId: task.id, after })
                     }}
                     onDropCard={(event) => {
+                      const files = filesFromDataTransfer(event.dataTransfer)
+                      if (files.length > 0) {
+                        return
+                      }
                       event.preventDefault()
                       event.stopPropagation()
                       const dragged = readDraggedTask(event)
@@ -300,6 +387,8 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                     onSave={(payload) => void handleSave(task, payload)}
                     onError={(message) => setError(message)}
                     onTaskChange={upsertTask}
+                    onGuardUpload={guardUpload}
+                    onUploaded={() => void refreshStorage()}
                   />
                 ))}
               </div>
@@ -417,6 +506,8 @@ function TaskCard({
   onSave,
   onError,
   onTaskChange,
+  onGuardUpload,
+  onUploaded,
 }: {
   projectId: string
   task: Task
@@ -436,6 +527,8 @@ function TaskCard({
   }) => void
   onError: (message: string) => void
   onTaskChange: (task: Task) => void
+  onGuardUpload: (files: File[]) => File[] | null
+  onUploaded: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -444,7 +537,10 @@ function TaskCard({
   const [assignedUserId, setAssignedUserId] = useState(task.assigned_user_id)
   const [status, setStatus] = useState<TaskStatus>(task.status)
   const [attaching, setAttaching] = useState(false)
+  const [fileOver, setFileOver] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState<{ id: number; name: string } | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const skipClick = useRef(false)
 
   useEffect(() => {
     setTitle(task.title)
@@ -455,27 +551,18 @@ function TaskCard({
   }, [task])
 
   async function handleAttach(files: File[]) {
-    const accepted = files.filter((file) => !isOverUploadLimit(file.size))
-    const rejected = files.length - accepted.length
-    if (accepted.length === 0) {
-      onError('Arquivo excede o limite de 5 MB.')
+    const accepted = onGuardUpload(files)
+    if (!accepted) {
       return
     }
     setAttaching(true)
-    onError('')
     try {
       let latest = task
       for (const file of accepted) {
         latest = await uploadTaskAttachment(projectId, task.id, file)
         onTaskChange(latest)
       }
-      if (rejected > 0) {
-        onError(
-          rejected === 1
-            ? '1 arquivo acima de 5 MB foi ignorado.'
-            : `${rejected} arquivos acima de 5 MB foram ignorados.`,
-        )
-      }
+      onUploaded()
     } catch (err) {
       onError(getErrorMessage(err, 'Não foi possível enviar o arquivo.'))
     } finally {
@@ -487,9 +574,22 @@ function TaskCard({
     onError('')
     try {
       onTaskChange(await deleteTaskAttachment(projectId, task.id, attachmentId))
+      onUploaded()
     } catch (err) {
       onError(getErrorMessage(err, 'Não foi possível remover o anexo.'))
     }
+  }
+
+  function handleCardDrop(event: DragEvent<HTMLElement>) {
+    const files = filesFromDataTransfer(event.dataTransfer)
+    if (files.length > 0) {
+      event.preventDefault()
+      event.stopPropagation()
+      setFileOver(false)
+      void handleAttach(files)
+      return
+    }
+    onDropCard(event)
   }
 
   if (editing) {
@@ -542,7 +642,7 @@ function TaskCard({
                 projectId={projectId}
                 task={task}
                 canRemove
-                onRemove={(attachmentId) => void handleRemoveAttachment(attachmentId)}
+                onRemove={(attachment) => setPendingRemove(attachment)}
               />
               <Button
                 type="button"
@@ -593,9 +693,32 @@ function TaskCard({
             </div>
           </div>
         </CardContent>
+        <ConfirmDialog
+          open={pendingRemove !== null}
+          title="Remover anexo"
+          description={
+            pendingRemove
+              ? `Remover o anexo “${pendingRemove.name}”?`
+              : 'Este anexo será removido.'
+          }
+          confirmLabel="Remover"
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingRemove(null)
+            }
+          }}
+          onConfirm={() => {
+            if (pendingRemove) {
+              void handleRemoveAttachment(pendingRemove.id)
+            }
+            setPendingRemove(null)
+          }}
+        />
       </Card>
     )
   }
+
+  const overdue = isOverdue(task.due_date, task.status)
 
   return (
     <article
@@ -604,21 +727,53 @@ function TaskCard({
         dragging && 'cursor-grabbing opacity-45',
         dropEdge === 'before' && 'shadow-[0_-3px_0_var(--primary)]',
         dropEdge === 'after' && 'shadow-[0_3px_0_var(--primary)]',
+        fileOver && 'border-[rgba(110,168,255,0.55)] bg-[rgba(110,168,255,0.08)]',
       )}
       draggable
-      onDragOver={onDragOverCard}
-      onDrop={onDropCard}
+      onDragOver={(event) => {
+        if (isFileDrag(event)) {
+          event.preventDefault()
+          event.stopPropagation()
+          event.dataTransfer.dropEffect = 'copy'
+          setFileOver(true)
+          return
+        }
+        onDragOverCard(event)
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setFileOver(false)
+        }
+      }}
+      onDrop={handleCardDrop}
       onDragStart={(event) => {
         if ((event.target as HTMLElement).closest('button, form, a, input')) {
           event.preventDefault()
           return
         }
+        skipClick.current = true
         event.dataTransfer.setData('text/plain', String(task.id))
         event.dataTransfer.setData('text/task-id', String(task.id))
         event.dataTransfer.effectAllowed = 'move'
         onDragStart()
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={() => {
+        skipClick.current = true
+        setFileOver(false)
+        onDragEnd()
+        window.setTimeout(() => {
+          skipClick.current = false
+        }, 200)
+      }}
+      onClick={(event) => {
+        if (skipClick.current) {
+          return
+        }
+        if ((event.target as HTMLElement).closest('button, a, input')) {
+          return
+        }
+        setEditing(true)
+      }}
     >
       <div className="flex min-w-0 items-center gap-1">
         <h4 className="min-w-0 flex-1 truncate font-semibold" title={task.title}>
@@ -655,13 +810,17 @@ function TaskCard({
       )}
       <p className="truncate text-[0.78rem] text-muted-foreground">
         {task.assigned_user_name}
-        {task.due_date ? ` · ${formatDate(task.due_date)}` : ''}
+        {task.due_date ? (
+          <span className={overdue ? 'text-destructive' : undefined}>
+            {` · ${formatDate(task.due_date)}`}
+          </span>
+        ) : null}
       </p>
       <TaskAttachments
         projectId={projectId}
         task={task}
         canRemove
-        onRemove={(attachmentId) => void handleRemoveAttachment(attachmentId)}
+        onRemove={(attachment) => setPendingRemove(attachment)}
       />
       <input
         ref={fileRef}
@@ -677,6 +836,27 @@ function TaskCard({
           }
         }}
       />
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title="Remover anexo"
+        description={
+          pendingRemove
+            ? `Remover o anexo “${pendingRemove.name}”?`
+            : 'Este anexo será removido.'
+        }
+        confirmLabel="Remover"
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemove(null)
+          }
+        }}
+        onConfirm={() => {
+          if (pendingRemove) {
+            void handleRemoveAttachment(pendingRemove.id)
+          }
+          setPendingRemove(null)
+        }}
+      />
     </article>
   )
 }
@@ -690,7 +870,7 @@ function TaskAttachments({
   projectId: string
   task: Task
   canRemove?: boolean
-  onRemove?: (attachmentId: number) => void
+  onRemove?: (attachment: { id: number; name: string }) => void
 }) {
   const attachments = task.attachments ?? []
   if (attachments.length === 0) {
@@ -714,7 +894,7 @@ function TaskAttachments({
               className="text-muted-foreground"
               title="Remover"
               aria-label={`Remover ${attachment.original_name}`}
-              onClick={() => onRemove(attachment.id)}
+              onClick={() => onRemove({ id: attachment.id, name: attachment.original_name })}
             >
               <Trash2 />
             </Button>

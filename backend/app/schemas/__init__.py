@@ -5,6 +5,7 @@ from app.schemas.project import (
     ProjectMemberPublic,
     ProjectPublic,
     ProjectUpdate,
+    StorageUsagePublic,
 )
 from app.schemas.task import TaskCreate, TaskPublic, TaskUpdate
 from app.schemas.user import (
@@ -30,6 +31,7 @@ __all__ = [
     "ProjectPublic",
     "ProjectMemberAdd",
     "ProjectMemberPublic",
+    "StorageUsagePublic",
     "MessageCreate",
     "MessagePublic",
     "MessageList",

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { addMember, getProject, listMembers, removeMember } from '../../api/projects'
 import { listUsers } from '../../api/users'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { DeleteProjectDialog } from '../../components/DeleteProjectDialog'
 import { EditProjectDialog } from '../../components/EditProjectDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
@@ -152,6 +153,7 @@ function ProjectWorkspace({
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [pendingMember, setPendingMember] = useState<ProjectMember | null>(null)
   const currentTab = tab === 'members' && !isAdmin ? 'chat' : tab
   const { unreadFor, setActiveView, markRead } = useNotifications()
   const unreadCount = unreadFor(projectId)
@@ -276,7 +278,7 @@ function ProjectWorkspace({
                         size="icon-sm"
                         title="Remover"
                         aria-label={`Remover ${member.name}`}
-                        onClick={() => void onRemove(member.user_id)}
+                        onClick={() => setPendingMember(member)}
                       >
                         <Trash2 />
                       </Button>
@@ -331,6 +333,27 @@ function ProjectWorkspace({
       onDeleted={() => {
         markRead(Number(projectId))
         navigate('/projects')
+      }}
+    />
+    <ConfirmDialog
+      open={pendingMember !== null}
+      title="Remover membro"
+      description={
+        pendingMember
+          ? `Remover ${pendingMember.name} deste projeto?`
+          : 'Este membro será removido do projeto.'
+      }
+      confirmLabel="Remover"
+      onOpenChange={(open) => {
+        if (!open) {
+          setPendingMember(null)
+        }
+      }}
+      onConfirm={() => {
+        if (pendingMember) {
+          void onRemove(pendingMember.user_id)
+        }
+        setPendingMember(null)
       }}
     />
     </>

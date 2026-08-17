@@ -17,6 +17,20 @@ export function formatDate(value: string): string {
   return `${day}/${month}/${year}`
 }
 
+export function isOverdue(dueDate: string | null | undefined, status: string): boolean {
+  if (!dueDate || status === 'DONE') {
+    return false
+  }
+  const [year, month, day] = dueDate.split('-').map(Number)
+  if (!year || !month || !day) {
+    return false
+  }
+  const due = new Date(year, month - 1, day)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return due < today
+}
+
 export function roleLabel(role: string): string {
   return role === 'ADMIN' ? 'Administrador' : 'Colaborador'
 }

@@ -11,6 +11,7 @@ from app.schemas.project import (
     ProjectMemberPublic,
     ProjectPublic,
     ProjectUpdate,
+    StorageUsagePublic,
 )
 from app.services.project_service import ProjectService
 
@@ -50,6 +51,14 @@ def get_overview(
     current_user: User = Depends(get_current_user),
 ) -> OverviewPublic:
     return ProjectService(db).get_overview(current_user)
+
+
+@router.get("/storage", response_model=StorageUsagePublic)
+def get_storage_usage(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> StorageUsagePublic:
+    return ProjectService(db).get_storage_usage(current_user)
 
 
 @router.get("/{project_id}", response_model=ProjectPublic)

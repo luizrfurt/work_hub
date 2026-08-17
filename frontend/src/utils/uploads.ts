@@ -6,3 +6,11 @@ export const UPLOAD_HINT = 'JPEG, PNG, WEBP, TXT ou ZIP até 5 MB'
 export function isOverUploadLimit(size: number): boolean {
   return size > UPLOAD_MAX_BYTES
 }
+
+export function isFileDrag(event: { dataTransfer: DataTransfer | null }): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+}
+
+export function filesFromDataTransfer(data: DataTransfer | null): File[] {
+  return Array.from(data?.files ?? [])
+}

@@ -21,6 +21,7 @@ from app.schemas.project import (
     ProjectMemberPublic,
     ProjectPublic,
     ProjectUpdate,
+    StorageUsagePublic,
 )
 from app.storage import storage
 
@@ -164,14 +165,7 @@ class ProjectService:
 
         total = sum(totals.values())
         active = totals[TaskStatus.TODO] + totals[TaskStatus.IN_PROGRESS]
-        used_bytes, file_count = self.messages.sum_attachment_usage_for_organization(
-            actor.organization_id
-        )
-        task_bytes, task_files = self.tasks.sum_attachment_usage_for_organization(
-            actor.organization_id
-        )
-        used_bytes += task_bytes
-        file_count += task_files
+        used_bytes, file_count = self._attachment_usage(actor.organization_id)
         return OverviewPublic(
             project_count=len(overview_projects),
             people_count=self.projects.count_distinct_members_for_organization(
@@ -187,6 +181,14 @@ class ProjectService:
             storage_file_count=file_count,
             projects=overview_projects,
             contributors=contributors,
+        )
+
+    def get_storage_usage(self, actor: User) -> StorageUsagePublic:
+        used_bytes, file_count = self._attachment_usage(actor.organization_id)
+        return StorageUsagePublic(
+            storage_used_bytes=used_bytes,
+            storage_quota_bytes=get_settings().storage_quota_bytes,
+            storage_file_count=file_count,
         )
 
     def add_member(self, project_id: int, user_id: int, actor: User) -> ProjectMemberPublic:
@@ -248,6 +250,15 @@ class ProjectService:
         if not self.projects.is_member(project_id, user_id):
             raise ForbiddenError("Você não participa deste projeto.")
         return project
+
+    def _attachment_usage(self, organization_id: int) -> tuple[int, int]:
+        used_bytes, file_count = self.messages.sum_attachment_usage_for_organization(
+            organization_id
+        )
+        task_bytes, task_files = self.tasks.sum_attachment_usage_for_organization(
+            organization_id
+        )
+        return used_bytes + task_bytes, file_count + task_files
 
     def _task_slice(self, counts: dict) -> dict[str, int]:
         todo = int(counts.get(TaskStatus.TODO, 0) or counts.get("TODO", 0))

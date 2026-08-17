@@ -104,6 +104,12 @@ export interface OverviewContributor {
   total: number
 }
 
+export interface StorageUsage {
+  storage_used_bytes: number
+  storage_quota_bytes: number
+  storage_file_count: number
+}
+
 export interface Overview {
   project_count: number
   people_count: number

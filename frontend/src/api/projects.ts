@@ -1,4 +1,4 @@
-import type { Overview, Project, ProjectMember } from '../types'
+import type { Overview, Project, ProjectMember, StorageUsage } from '../types'
 import { api } from './client'
 
 export async function listProjects(): Promise<Project[]> {
@@ -8,6 +8,11 @@ export async function listProjects(): Promise<Project[]> {
 
 export async function getOverview(): Promise<Overview> {
   const { data } = await api.get<Overview>('/projects/overview')
+  return data
+}
+
+export async function getStorageUsage(): Promise<StorageUsage> {
+  const { data } = await api.get<StorageUsage>('/projects/storage')
   return data
 }
 

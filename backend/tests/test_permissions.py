@@ -326,6 +326,44 @@ def test_admin_can_manage_task(client, unique):
     assert by_owner.json()["status"] == "DONE"
 
 
+def test_only_admin_can_delete_task(client, unique):
+    admin = register_admin(client, unique)
+    collab = create_collaborator(client, admin["access_token"], unique)
+    project = client.post(
+        "/projects",
+        json={"name": f"Projeto apagar tarefa {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    client.post(
+        f"/projects/{project['id']}/members",
+        json={"user_id": collab["user"]["id"]},
+        headers=auth_header(admin["access_token"]),
+    )
+    task = client.post(
+        f"/projects/{project['id']}/tasks",
+        json={"title": "Apagar", "assigned_user_id": collab["user"]["id"]},
+        headers=auth_header(collab["access_token"]),
+    ).json()
+
+    forbidden = client.delete(
+        f"/projects/{project['id']}/tasks/{task['id']}",
+        headers=auth_header(collab["access_token"]),
+    )
+    assert forbidden.status_code == 403
+
+    deleted = client.delete(
+        f"/projects/{project['id']}/tasks/{task['id']}",
+        headers=auth_header(admin["access_token"]),
+    )
+    assert deleted.status_code == 204, deleted.text
+
+    missing = client.get(
+        f"/projects/{project['id']}/tasks/{task['id']}",
+        headers=auth_header(admin["access_token"]),
+    )
+    assert missing.status_code == 404
+
+
 def test_task_order_can_be_rearranged(client, unique):
     admin = register_admin(client, unique)
     project = client.post(

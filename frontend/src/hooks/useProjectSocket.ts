@@ -8,6 +8,7 @@ export type ProjectSocketEvent =
   | { type: 'message'; payload: Message }
   | { type: 'task'; payload: Task }
   | { type: 'tasks'; payload: Task[] }
+  | { type: 'task_deleted'; payload: { id: number } }
 
 interface UseProjectSocketOptions {
   projectId: string
@@ -60,6 +61,9 @@ export function useProjectSocket({ projectId, enabled, onEvent }: UseProjectSock
             onEventRef.current(data)
           }
           if (data.type === 'tasks' && Array.isArray(data.payload)) {
+            onEventRef.current(data)
+          }
+          if (data.type === 'task_deleted' && data.payload?.id) {
             onEventRef.current(data)
           }
         } catch {

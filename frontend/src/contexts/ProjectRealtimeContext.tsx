@@ -13,12 +13,14 @@ import type { Message, Task } from '../types'
 
 type MessageListener = (message: Message) => void
 type TaskListener = (task: Task) => void
+type TaskDeletedListener = (taskId: number) => void
 
 interface ProjectRealtimeValue {
   send: (content: string) => boolean
   connected: boolean
   subscribeMessages: (listener: MessageListener) => () => void
   subscribeTasks: (listener: TaskListener) => () => void
+  subscribeTaskDeleted: (listener: TaskDeletedListener) => () => void
 }
 
 const ProjectRealtimeContext = createContext<ProjectRealtimeValue | undefined>(undefined)
@@ -32,6 +34,7 @@ export function ProjectRealtimeProvider({
 }) {
   const messageListeners = useRef(new Set<MessageListener>())
   const taskListeners = useRef(new Set<TaskListener>())
+  const taskDeletedListeners = useRef(new Set<TaskDeletedListener>())
 
   const { send, connected } = useProjectSocket({
     projectId,
@@ -47,6 +50,9 @@ export function ProjectRealtimeProvider({
         event.payload.forEach((task) => {
           taskListeners.current.forEach((listener) => listener(task))
         })
+      }
+      if (event.type === 'task_deleted') {
+        taskDeletedListeners.current.forEach((listener) => listener(event.payload.id))
       }
     },
   })
@@ -65,9 +71,16 @@ export function ProjectRealtimeProvider({
     }
   }, [])
 
+  const subscribeTaskDeleted = useCallback((listener: TaskDeletedListener) => {
+    taskDeletedListeners.current.add(listener)
+    return () => {
+      taskDeletedListeners.current.delete(listener)
+    }
+  }, [])
+
   const value = useMemo(
-    () => ({ send, connected, subscribeMessages, subscribeTasks }),
-    [send, connected, subscribeMessages, subscribeTasks],
+    () => ({ send, connected, subscribeMessages, subscribeTasks, subscribeTaskDeleted }),
+    [send, connected, subscribeMessages, subscribeTasks, subscribeTaskDeleted],
   )
 
   return <ProjectRealtimeContext.Provider value={value}>{children}</ProjectRealtimeContext.Provider>
@@ -103,4 +116,14 @@ export function useRealtimeTasks(onTask: TaskListener): boolean {
   }, [subscribeTasks])
 
   return connected
+}
+
+export function useRealtimeTaskDeleted(onDeleted: TaskDeletedListener): void {
+  const { subscribeTaskDeleted } = useProjectRealtime()
+  const onDeletedRef = useRef(onDeleted)
+  onDeletedRef.current = onDeleted
+
+  useEffect(() => {
+    return subscribeTaskDeleted((taskId) => onDeletedRef.current(taskId))
+  }, [subscribeTaskDeleted])
 }

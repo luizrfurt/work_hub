@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -50,6 +50,17 @@ def update_task(
     current_user: User = Depends(get_current_user),
 ) -> TaskPublic:
     return TaskService(db).update_task(project_id, task_id, payload, current_user)
+
+
+@router.delete("/{task_id}", status_code=204)
+def delete_task(
+    project_id: int,
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    TaskService(db).delete_task(project_id, task_id, current_user)
+    return Response(status_code=204)
 
 
 @router.post("/{task_id}/attachments", response_model=TaskPublic, status_code=201)

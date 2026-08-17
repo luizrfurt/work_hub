@@ -1,14 +1,14 @@
 import { Paperclip, Pencil, Plus, Trash2 } from 'lucide-react'
 import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
-import { createTask, deleteTaskAttachment, listTasks, updateTask, uploadTaskAttachment } from '../../api/tasks'
+import { createTask, deleteTask, deleteTaskAttachment, listTasks, updateTask, uploadTaskAttachment } from '../../api/tasks'
 import { taskAttachmentUrl } from '../../api/client'
 import { AttachmentView } from '../../components/AttachmentView'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { Field } from '../../components/Field'
 import { useAuth } from '../../contexts/AuthContext'
-import { useRealtimeTasks } from '../../contexts/ProjectRealtimeContext'
+import { useRealtimeTaskDeleted, useRealtimeTasks } from '../../contexts/ProjectRealtimeContext'
 import { useOrgStorage } from '../../hooks/useOrgStorage'
 import type { ProjectMember, Task, TaskStatus } from '../../types'
 import {
@@ -70,6 +70,7 @@ function siblingIndex(
 
 export function TodoTab({ projectId, members }: TodoTabProps) {
   const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const { usage, refresh: refreshStorage } = useOrgStorage()
   const [tasks, setTasks] = useState<Task[]>([])
   const [error, setError] = useState('')
@@ -90,6 +91,11 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
   }, [])
 
   const connected = useRealtimeTasks(upsertTask)
+  useRealtimeTaskDeleted(
+    useCallback((taskId: number) => {
+      setTasks((current) => current.filter((item) => item.id !== taskId))
+    }, []),
+  )
 
   function columnTasks(status: TaskStatus) {
     return tasks.filter((task) => task.status === status).slice().sort(byBoardOrder)
@@ -237,6 +243,17 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
     }
   }
 
+  async function handleDelete(task: Task) {
+    setError('')
+    try {
+      await deleteTask(projectId, task.id)
+      setTasks((current) => current.filter((item) => item.id !== task.id))
+      void refreshStorage()
+    } catch (err) {
+      setError(getErrorMessage(err, 'Não foi possível excluir a tarefa.'))
+    }
+  }
+
   function readDraggedTask(event: DragEvent) {
     const raw = event.dataTransfer.getData('text/task-id') || event.dataTransfer.getData('text/plain')
     const taskId = Number(raw)
@@ -260,7 +277,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
           aria-pressed={onlyMine}
           onClick={() => setOnlyMine((current) => !current)}
         >
-          Minhas tarefas
+          {onlyMine ? 'Todas as tarefas' : 'Minhas tarefas'}
         </Button>
       </div>
 
@@ -389,6 +406,8 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                     onTaskChange={upsertTask}
                     onGuardUpload={guardUpload}
                     onUploaded={() => void refreshStorage()}
+                    canDelete={isAdmin}
+                    onDelete={() => void handleDelete(task)}
                   />
                 ))}
               </div>
@@ -508,6 +527,8 @@ function TaskCard({
   onTaskChange,
   onGuardUpload,
   onUploaded,
+  canDelete,
+  onDelete,
 }: {
   projectId: string
   task: Task
@@ -529,6 +550,8 @@ function TaskCard({
   onTaskChange: (task: Task) => void
   onGuardUpload: (files: File[]) => File[] | null
   onUploaded: () => void
+  canDelete: boolean
+  onDelete: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -539,6 +562,7 @@ function TaskCard({
   const [attaching, setAttaching] = useState(false)
   const [fileOver, setFileOver] = useState(false)
   const [pendingRemove, setPendingRemove] = useState<{ id: number; name: string } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const skipClick = useRef(false)
 
@@ -690,6 +714,11 @@ function TaskCard({
               <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
                 Cancelar
               </Button>
+              {canDelete && (
+                <Button type="button" variant="destructive" onClick={() => setPendingDelete(true)}>
+                  Excluir
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -712,6 +741,17 @@ function TaskCard({
               void handleRemoveAttachment(pendingRemove.id)
             }
             setPendingRemove(null)
+          }}
+        />
+        <ConfirmDialog
+          open={pendingDelete}
+          title="Excluir tarefa"
+          description={`Excluir “${task.title}”? Anexos desta tarefa também serão apagados.`}
+          confirmLabel="Excluir"
+          onOpenChange={setPendingDelete}
+          onConfirm={() => {
+            setPendingDelete(false)
+            onDelete()
           }}
         />
       </Card>
@@ -801,6 +841,19 @@ function TaskCard({
           >
             <Paperclip />
           </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              className="text-muted-foreground"
+              title="Excluir"
+              aria-label="Excluir"
+              onClick={() => setPendingDelete(true)}
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
       </div>
       {task.description && (
@@ -850,13 +903,24 @@ function TaskCard({
             setPendingRemove(null)
           }
         }}
-        onConfirm={() => {
-          if (pendingRemove) {
-            void handleRemoveAttachment(pendingRemove.id)
-          }
-          setPendingRemove(null)
-        }}
-      />
+          onConfirm={() => {
+            if (pendingRemove) {
+              void handleRemoveAttachment(pendingRemove.id)
+            }
+            setPendingRemove(null)
+          }}
+        />
+        <ConfirmDialog
+          open={pendingDelete}
+          title="Excluir tarefa"
+          description={`Excluir “${task.title}”? Anexos desta tarefa também serão apagados.`}
+          confirmLabel="Excluir"
+          onOpenChange={setPendingDelete}
+          onConfirm={() => {
+            setPendingDelete(false)
+            onDelete()
+          }}
+        />
     </article>
   )
 }

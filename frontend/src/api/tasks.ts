@@ -37,6 +37,13 @@ export async function updateTask(
   return data
 }
 
+export async function deleteTask(
+  projectId: number | string,
+  taskId: number | string,
+): Promise<void> {
+  await api.delete(`/projects/${projectId}/tasks/${taskId}`)
+}
+
 export async function uploadTaskAttachment(
   projectId: number | string,
   taskId: number | string,

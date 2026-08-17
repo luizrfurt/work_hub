@@ -4,6 +4,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.permissions import require_admin
 from app.core.uploads import validate_upload
 from app.models.task import Task, TaskStatus
 from app.models.task_attachment import TaskAttachment
@@ -95,6 +96,28 @@ class TaskService:
         else:
             self._broadcast_many(project_id, publics)
         return self._to_public(current)
+
+    def delete_task(self, project_id: int, task_id: int, actor: User) -> None:
+        require_admin(actor)
+        self.project_service.assert_can_access(project_id, actor)
+        task = self._get_task_in_project(project_id, task_id)
+        status = task.status
+        storage_keys = [item.storage_key for item in task.attachments or []]
+        self.tasks.delete(task)
+        self.db.flush()
+        remaining = self.tasks.list_by_project_status(project_id, status)
+        for position, item in enumerate(remaining):
+            item.position = position
+        self.db.commit()
+        for storage_key in storage_keys:
+            try:
+                storage.delete(storage_key)
+            except ValueError:
+                continue
+        self._broadcast_deleted(project_id, task_id)
+        remaining = self.tasks.list_by_project_status(project_id, status)
+        if remaining:
+            self._broadcast_many(project_id, [self._to_public(item) for item in remaining])
 
     def add_attachment(
         self, project_id: int, task_id: int, actor: User, file: UploadFile
@@ -201,6 +224,11 @@ class TaskService:
     def _broadcast(self, project_id: int, task: TaskPublic) -> None:
         connection_manager.broadcast_nowait(
             project_id, {"type": "task", "payload": task.model_dump(mode="json")}
+        )
+
+    def _broadcast_deleted(self, project_id: int, task_id: int) -> None:
+        connection_manager.broadcast_nowait(
+            project_id, {"type": "task_deleted", "payload": {"id": task_id}}
         )
 
     def _broadcast_many(self, project_id: int, tasks: list[TaskPublic]) -> None:

@@ -49,6 +49,9 @@ class TaskRepository:
         self.db.flush()
         return task
 
+    def delete(self, task: Task) -> None:
+        self.db.delete(task)
+
     def add_attachment(self, attachment: TaskAttachment) -> TaskAttachment:
         self.db.add(attachment)
         self.db.flush()

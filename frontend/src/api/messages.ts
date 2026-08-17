@@ -17,6 +17,24 @@ export async function sendMessage(projectId: number | string, content: string): 
   return data
 }
 
+export async function updateMessage(
+  projectId: number | string,
+  messageId: number | string,
+  content: string,
+): Promise<Message> {
+  const { data } = await api.patch<Message>(`/projects/${projectId}/messages/${messageId}`, {
+    content,
+  })
+  return data
+}
+
+export async function deleteMessage(
+  projectId: number | string,
+  messageId: number | string,
+): Promise<void> {
+  await api.delete(`/projects/${projectId}/messages/${messageId}`)
+}
+
 export async function uploadAttachment(
   projectId: number | string,
   file: File,

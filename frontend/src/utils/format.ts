@@ -9,6 +9,13 @@ export function formatDateTime(value: string): string {
   })
 }
 
+export function isEdited(createdAt: string, updatedAt?: string | null): boolean {
+  if (!updatedAt) {
+    return false
+  }
+  return new Date(updatedAt).getTime() - new Date(createdAt).getTime() > 1000
+}
+
 export function formatDate(value: string): string {
   const [year, month, day] = value.split('-')
   if (!year || !month || !day) {

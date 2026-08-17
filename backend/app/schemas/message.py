@@ -16,6 +16,10 @@ class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
 
 
+class MessageUpdate(BaseModel):
+    content: str = Field(max_length=8000)
+
+
 class MessagePublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,6 +30,7 @@ class MessagePublic(BaseModel):
     content: str | None
     attachments: list[AttachmentPublic] = []
     created_at: datetime
+    updated_at: datetime
 
 
 class MessageList(BaseModel):

@@ -47,6 +47,9 @@ class MessageRepository:
         self.db.flush()
         return attachment
 
+    def delete(self, message: Message) -> None:
+        self.db.delete(message)
+
     def get_attachment(self, attachment_id: int) -> MessageAttachment | None:
         return self.db.get(MessageAttachment, attachment_id)
 

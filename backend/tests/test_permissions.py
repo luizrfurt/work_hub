@@ -146,6 +146,65 @@ def test_outsider_cannot_access_messages(client, unique):
     assert response.status_code == 403
 
 
+def test_author_can_edit_and_delete_own_message(client, unique):
+    admin = register_admin(client, unique)
+    author = create_collaborator(client, admin["access_token"], unique, "au")
+    other = create_collaborator(client, admin["access_token"], unique, "ot")
+    project = client.post(
+        "/projects",
+        json={"name": f"Projeto chat edit {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    for member in (author, other):
+        client.post(
+            f"/projects/{project['id']}/members",
+            json={"user_id": member["user"]["id"]},
+            headers=auth_header(admin["access_token"]),
+        )
+
+    created = client.post(
+        f"/projects/{project['id']}/messages",
+        json={"content": "Texto original"},
+        headers=auth_header(author["access_token"]),
+    )
+    assert created.status_code == 201, created.text
+    message = created.json()
+
+    forbidden_edit = client.patch(
+        f"/projects/{project['id']}/messages/{message['id']}",
+        json={"content": "Não é sua"},
+        headers=auth_header(other["access_token"]),
+    )
+    assert forbidden_edit.status_code == 403
+
+    edited = client.patch(
+        f"/projects/{project['id']}/messages/{message['id']}",
+        json={"content": "Texto corrigido"},
+        headers=auth_header(author["access_token"]),
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["content"] == "Texto corrigido"
+    assert edited.json()["updated_at"] >= edited.json()["created_at"]
+
+    forbidden_delete = client.delete(
+        f"/projects/{project['id']}/messages/{message['id']}",
+        headers=auth_header(other["access_token"]),
+    )
+    assert forbidden_delete.status_code == 403
+
+    deleted = client.delete(
+        f"/projects/{project['id']}/messages/{message['id']}",
+        headers=auth_header(author["access_token"]),
+    )
+    assert deleted.status_code == 204, deleted.text
+
+    listed = client.get(
+        f"/projects/{project['id']}/messages",
+        headers=auth_header(author["access_token"]),
+    ).json()
+    assert message["id"] not in {item["id"] for item in listed["items"]}
+
+
 def test_outsider_cannot_access_tasks(client, unique):
     admin = register_admin(client, unique)
     outsider = create_collaborator(client, admin["access_token"], unique, "out")

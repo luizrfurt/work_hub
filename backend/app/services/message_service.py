@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import AppError
+from app.core.exceptions import AppError, ForbiddenError, NotFoundError
 from app.core.uploads import validate_upload
 from app.models.attachment import MessageAttachment
 from app.models.message import Message
@@ -79,6 +80,38 @@ class MessageService:
         self._publish_message(project.id, project.name, actor.id, public)
         return public
 
+    def update_message(
+        self, project_id: int, message_id: int, content: str, actor: User
+    ) -> MessagePublic:
+        project = self.project_service.assert_can_access(project_id, actor)
+        message = self._require_own_message(project_id, message_id, actor, "editar")
+        text = content.strip()
+        if not text and not message.attachments:
+            raise AppError("A mensagem não pode ficar vazia.")
+        message.content = text or None
+        message.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        stored = self.messages.get_by_id(message.id)
+        assert stored is not None
+        public = self._to_public(stored)
+        self._broadcast_message(project.id, public)
+        return public
+
+    def delete_message(self, project_id: int, message_id: int, actor: User) -> None:
+        project = self.project_service.assert_can_access(project_id, actor)
+        message = self._require_own_message(project_id, message_id, actor, "excluir")
+        storage_keys = [item.storage_key for item in message.attachments or []]
+        self.messages.delete(message)
+        self.db.commit()
+        for storage_key in storage_keys:
+            try:
+                storage.delete(storage_key)
+            except ValueError:
+                continue
+        connection_manager.broadcast_nowait(
+            project.id, {"type": "message_deleted", "payload": {"id": message_id}}
+        )
+
     def get_attachment_for_download(
         self, project_id: int, attachment_id: int, actor: User
     ) -> MessageAttachment:
@@ -105,6 +138,22 @@ class MessageService:
         ]
         connection_manager.notify_users_nowait(audience, event)
 
+    def _broadcast_message(self, project_id: int, public: MessagePublic) -> None:
+        connection_manager.broadcast_nowait(
+            project_id,
+            {"type": "message", "payload": public.model_dump(mode="json")},
+        )
+
+    def _require_own_message(
+        self, project_id: int, message_id: int, actor: User, action: str
+    ) -> Message:
+        message = self.messages.get_by_id(message_id)
+        if message is None or message.project_id != project_id:
+            raise NotFoundError("Mensagem não encontrada.")
+        if message.user_id != actor.id:
+            raise ForbiddenError(f"Você só pode {action} as próprias mensagens.")
+        return message
+
     def _to_public(self, message: Message) -> MessagePublic:
         return MessagePublic(
             id=message.id,
@@ -123,4 +172,5 @@ class MessageService:
                 for item in message.attachments
             ],
             created_at=message.created_at,
+            updated_at=message.updated_at,
         )

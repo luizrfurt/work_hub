@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database.connection import get_db
 from app.models.user import User
-from app.schemas.message import MessageCreate, MessageList, MessagePublic
+from app.schemas.message import MessageCreate, MessageList, MessagePublic, MessageUpdate
 from app.services.message_service import MessageService
 from app.storage import storage
 
@@ -31,6 +31,30 @@ def create_message(
     current_user: User = Depends(get_current_user),
 ) -> MessagePublic:
     return MessageService(db).create_text_message(project_id, payload.content, current_user)
+
+
+@router.patch("/messages/{message_id}", response_model=MessagePublic)
+def update_message(
+    project_id: int,
+    message_id: int,
+    payload: MessageUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessagePublic:
+    return MessageService(db).update_message(
+        project_id, message_id, payload.content, current_user
+    )
+
+
+@router.delete("/messages/{message_id}", status_code=204)
+def delete_message(
+    project_id: int,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    MessageService(db).delete_message(project_id, message_id, current_user)
+    return Response(status_code=204)
 
 
 @router.post("/attachments", response_model=MessagePublic, status_code=201)

@@ -12,6 +12,7 @@ import { useProjectSocket } from '../hooks/useProjectSocket'
 import type { Message, Task } from '../types'
 
 type MessageListener = (message: Message) => void
+type MessageDeletedListener = (messageId: number) => void
 type TaskListener = (task: Task) => void
 type TaskDeletedListener = (taskId: number) => void
 
@@ -19,6 +20,7 @@ interface ProjectRealtimeValue {
   send: (content: string) => boolean
   connected: boolean
   subscribeMessages: (listener: MessageListener) => () => void
+  subscribeMessageDeleted: (listener: MessageDeletedListener) => () => void
   subscribeTasks: (listener: TaskListener) => () => void
   subscribeTaskDeleted: (listener: TaskDeletedListener) => () => void
 }
@@ -33,6 +35,7 @@ export function ProjectRealtimeProvider({
   children: ReactNode
 }) {
   const messageListeners = useRef(new Set<MessageListener>())
+  const messageDeletedListeners = useRef(new Set<MessageDeletedListener>())
   const taskListeners = useRef(new Set<TaskListener>())
   const taskDeletedListeners = useRef(new Set<TaskDeletedListener>())
 
@@ -42,6 +45,9 @@ export function ProjectRealtimeProvider({
     onEvent: (event) => {
       if (event.type === 'message') {
         messageListeners.current.forEach((listener) => listener(event.payload))
+      }
+      if (event.type === 'message_deleted') {
+        messageDeletedListeners.current.forEach((listener) => listener(event.payload.id))
       }
       if (event.type === 'task') {
         taskListeners.current.forEach((listener) => listener(event.payload))
@@ -64,6 +70,13 @@ export function ProjectRealtimeProvider({
     }
   }, [])
 
+  const subscribeMessageDeleted = useCallback((listener: MessageDeletedListener) => {
+    messageDeletedListeners.current.add(listener)
+    return () => {
+      messageDeletedListeners.current.delete(listener)
+    }
+  }, [])
+
   const subscribeTasks = useCallback((listener: TaskListener) => {
     taskListeners.current.add(listener)
     return () => {
@@ -79,8 +92,15 @@ export function ProjectRealtimeProvider({
   }, [])
 
   const value = useMemo(
-    () => ({ send, connected, subscribeMessages, subscribeTasks, subscribeTaskDeleted }),
-    [send, connected, subscribeMessages, subscribeTasks, subscribeTaskDeleted],
+    () => ({
+      send,
+      connected,
+      subscribeMessages,
+      subscribeMessageDeleted,
+      subscribeTasks,
+      subscribeTaskDeleted,
+    }),
+    [send, connected, subscribeMessages, subscribeMessageDeleted, subscribeTasks, subscribeTaskDeleted],
   )
 
   return <ProjectRealtimeContext.Provider value={value}>{children}</ProjectRealtimeContext.Provider>
@@ -104,6 +124,16 @@ export function useRealtimeMessages(onMessage: MessageListener): boolean {
   }, [subscribeMessages])
 
   return connected
+}
+
+export function useRealtimeMessageDeleted(onDeleted: MessageDeletedListener): void {
+  const { subscribeMessageDeleted } = useProjectRealtime()
+  const onDeletedRef = useRef(onDeleted)
+  onDeletedRef.current = onDeleted
+
+  useEffect(() => {
+    return subscribeMessageDeleted((messageId) => onDeletedRef.current(messageId))
+  }, [subscribeMessageDeleted])
 }
 
 export function useRealtimeTasks(onTask: TaskListener): boolean {

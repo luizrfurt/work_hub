@@ -1,17 +1,22 @@
-import { Paperclip, Send } from 'lucide-react'
+import { Paperclip, Pencil, Send, Trash2 } from 'lucide-react'
 import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
-import { listMessages, sendMessage, uploadAttachment } from '../../api/messages'
+import { deleteMessage, listMessages, sendMessage, updateMessage, uploadAttachment } from '../../api/messages'
 import { attachmentUrl } from '../../api/client'
 import { AttachmentView } from '../../components/AttachmentView'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { UserAvatar } from '../../components/UserAvatar'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationsContext'
-import { useProjectRealtime, useRealtimeMessages } from '../../contexts/ProjectRealtimeContext'
+import {
+  useProjectRealtime,
+  useRealtimeMessageDeleted,
+  useRealtimeMessages,
+} from '../../contexts/ProjectRealtimeContext'
 import { useOrgStorage } from '../../hooks/useOrgStorage'
 import type { Message } from '../../types'
-import { formatDateTime, getErrorMessage } from '../../utils/format'
+import { formatDateTime, getErrorMessage, isEdited } from '../../utils/format'
 import { checkUploadQuota } from '../../utils/quota'
 import {
   filesFromDataTransfer,
@@ -38,6 +43,15 @@ function mergeMessages(current: Message[], incoming: Message[]): Message[] {
   return [...byId.values()].sort((left, right) => left.created_at.localeCompare(right.created_at))
 }
 
+function dropDeletedFromNewest(current: Message[], newest: Message[]): Message[] {
+  if (newest.length === 0) {
+    return current
+  }
+  const ids = new Set(newest.map((item) => item.id))
+  const oldestKept = newest[0].created_at
+  return current.filter((item) => ids.has(item.id) || item.created_at < oldestKept)
+}
+
 export function ChatTab({ projectId }: ChatTabProps) {
   const { user } = useAuth()
   const { markRead } = useNotifications()
@@ -59,8 +73,20 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setMessages((current) => mergeMessages(current, [message]))
   }, [])
 
+  const removeMessage = useCallback((messageId: number) => {
+    setMessages((current) => {
+      if (!current.some((item) => item.id === messageId)) {
+        return current
+      }
+      skipScrollRef.current = true
+      setTotal((value) => Math.max(0, value - 1))
+      return current.filter((item) => item.id !== messageId)
+    })
+  }, [])
+
   const { send } = useProjectRealtime()
   const connected = useRealtimeMessages(appendMessage)
+  useRealtimeMessageDeleted(removeMessage)
 
   useEffect(() => {
     let active = true
@@ -89,7 +115,12 @@ export function ChatTab({ projectId }: ChatTabProps) {
   useEffect(() => {
     const timer = window.setInterval(() => {
       void listMessages(projectId, PAGE_SIZE, 0).then((data) => {
-        setMessages((current) => mergeMessages(current, data.items))
+        setMessages((current) => {
+          if (data.total === 0) {
+            return []
+          }
+          return dropDeletedFromNewest(mergeMessages(current, data.items), data.items)
+        })
         setTotal(data.total)
       })
     }, connected ? 8000 : 2500)
@@ -200,6 +231,28 @@ export function ChatTab({ projectId }: ChatTabProps) {
     }
   }
 
+  async function handleEdit(message: Message, nextContent: string) {
+    setError('')
+    try {
+      appendMessage(await updateMessage(projectId, message.id, nextContent))
+    } catch (err) {
+      setError(getErrorMessage(err, 'Não foi possível editar a mensagem.'))
+    }
+  }
+
+  async function handleDelete(message: Message) {
+    setError('')
+    try {
+      await deleteMessage(projectId, message.id)
+      removeMessage(message.id)
+      if (message.attachments.length > 0) {
+        await refreshStorage()
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, 'Não foi possível excluir a mensagem.'))
+    }
+  }
+
   function handleFileDragOver(event: DragEvent<HTMLElement>) {
     if (!isFileDrag(event)) {
       return
@@ -253,44 +306,16 @@ export function ChatTab({ projectId }: ChatTabProps) {
           {!loading && messages.length === 0 && (
             <p className="m-auto text-center text-muted-foreground">Nenhuma mensagem ainda</p>
           )}
-          {messages.map((message) => {
-            const mine = message.user_id === user?.id
-            return (
-              <article
-                key={message.id}
-                className={cn(
-                  'flex max-w-[74%] items-end gap-[0.6rem] max-[800px]:max-w-[94%]',
-                  mine && 'flex-row-reverse self-end',
-                )}
-              >
-                <UserAvatar label={message.author_name.slice(0, 1).toUpperCase()} size="sm" />
-                <div
-                  className={cn(
-                    'rounded-[14px] border border-border bg-white/4 px-[0.85rem] py-[0.7rem]',
-                    mine
-                      ? 'rounded-br-[6px] border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.14)]'
-                      : 'rounded-bl-[6px]',
-                  )}
-                >
-                  <header className="mb-[0.2rem] flex items-baseline justify-between gap-3">
-                    <strong>{message.author_name}</strong>
-                    <time className="whitespace-nowrap text-[0.72rem] text-muted-foreground">
-                      {formatDateTime(message.created_at)}
-                    </time>
-                  </header>
-                  {message.content && <p>{message.content}</p>}
-                  {message.attachments.map((attachment) => (
-                    <AttachmentView
-                      key={attachment.id}
-                      url={attachmentUrl(projectId, attachment.id)}
-                      mimeType={attachment.mime_type}
-                      name={attachment.original_name}
-                    />
-                  ))}
-                </div>
-              </article>
-            )
-          })}
+          {messages.map((message) => (
+            <ChatBubble
+              key={message.id}
+              projectId={projectId}
+              message={message}
+              mine={message.user_id === user?.id}
+              onEdit={(next) => void handleEdit(message, next)}
+              onDelete={() => void handleDelete(message)}
+            />
+          ))}
         </div>
         <form
           className="flex gap-[0.55rem] border-t border-border bg-[rgba(12,18,36,0.85)] p-[0.9rem] max-[800px]:grid max-[800px]:grid-cols-1"
@@ -348,5 +373,149 @@ export function ChatTab({ projectId }: ChatTabProps) {
         </form>
       </div>
     </div>
+  )
+}
+
+function ChatBubble({
+  projectId,
+  message,
+  mine,
+  onEdit,
+  onDelete,
+}: {
+  projectId: string
+  message: Message
+  mine: boolean
+  onEdit: (content: string) => void
+  onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(message.content ?? '')
+  const [pendingDelete, setPendingDelete] = useState(false)
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(message.content ?? '')
+    }
+  }, [message.content, editing])
+
+  function handleSave() {
+    const text = draft.trim()
+    if (!text && message.attachments.length === 0) {
+      return
+    }
+    onEdit(text)
+    setEditing(false)
+  }
+
+  return (
+    <article
+      className={cn(
+        'flex max-w-[74%] items-end gap-[0.6rem] max-[800px]:max-w-[94%]',
+        mine && 'flex-row-reverse self-end',
+      )}
+    >
+      <UserAvatar label={message.author_name.slice(0, 1).toUpperCase()} size="sm" />
+      <div
+        className={cn(
+          'min-w-0 rounded-[14px] border border-border bg-white/4 px-[0.85rem] py-[0.7rem]',
+          mine
+            ? 'rounded-br-[6px] border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.14)]'
+            : 'rounded-bl-[6px]',
+        )}
+      >
+        <header className="mb-[0.2rem] flex items-center justify-between gap-2">
+          <strong className="truncate">{message.author_name}</strong>
+          <span className="flex shrink-0 items-center gap-0.5">
+            <time className="whitespace-nowrap text-[0.72rem] text-muted-foreground">
+              {formatDateTime(message.created_at)}
+              {isEdited(message.created_at, message.updated_at) ? ' · editada' : ''}
+            </time>
+            {mine && !editing && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  title="Editar"
+                  aria-label="Editar"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  title="Excluir"
+                  aria-label="Excluir"
+                  onClick={() => setPendingDelete(true)}
+                >
+                  <Trash2 />
+                </Button>
+              </>
+            )}
+          </span>
+        </header>
+        {editing ? (
+          <div className="grid gap-2">
+            <Textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={2}
+              autoFocus
+              className="min-h-16"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  handleSave()
+                }
+                if (event.key === 'Escape') {
+                  setEditing(false)
+                  setDraft(message.content ?? '')
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={handleSave}>
+                Salvar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(false)
+                  setDraft(message.content ?? '')
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          message.content && <p className="whitespace-pre-wrap">{message.content}</p>
+        )}
+        {message.attachments.map((attachment) => (
+          <AttachmentView
+            key={attachment.id}
+            url={attachmentUrl(projectId, attachment.id)}
+            mimeType={attachment.mime_type}
+            name={attachment.original_name}
+          />
+        ))}
+      </div>
+      <ConfirmDialog
+        open={pendingDelete}
+        title="Excluir mensagem"
+        description="Excluir esta mensagem? Anexos enviados nela também serão apagados."
+        confirmLabel="Excluir"
+        onOpenChange={setPendingDelete}
+        onConfirm={() => {
+          setPendingDelete(false)
+          onDelete()
+        }}
+      />
+    </article>
   )
 }

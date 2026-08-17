@@ -1,4 +1,4 @@
-from app.schemas.message import AttachmentPublic, MessageCreate, MessageList, MessagePublic
+from app.schemas.message import AttachmentPublic, MessageCreate, MessageList, MessagePublic, MessageUpdate
 from app.schemas.project import (
     ProjectCreate,
     ProjectMemberAdd,
@@ -33,6 +33,7 @@ __all__ = [
     "ProjectMemberPublic",
     "StorageUsagePublic",
     "MessageCreate",
+    "MessageUpdate",
     "MessagePublic",
     "MessageList",
     "AttachmentPublic",

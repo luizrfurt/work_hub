@@ -10,7 +10,7 @@ O MVP inclui:
 - dashboard para administradores (tarefas ativas, concluídas e por pessoa);
 - chat em tempo real por projeto (WebSocket);
 - aviso de nova mensagem mesmo fora do projeto (som, badge em Projetos e no card);
-- anexos de imagem (JPEG, PNG, WEBP) e TXT;
+- anexos de imagem (JPEG, PNG, WEBP), TXT e ZIP, até 5 MB;
 - lista de tarefas por projeto, com ordem livre e status A fazer / Em andamento / Concluído.
 
 ## Stack
@@ -48,7 +48,7 @@ DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
 JWT_SECRET_KEY=uma-chave-longa-e-secreta
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=30
-UPLOAD_MAX_SIZE_MB=10
+UPLOAD_MAX_SIZE_MB=5
 UPLOAD_DIRECTORY=./uploads
 STORAGE_QUOTA_GB=10
 DB_POOL_SIZE=5

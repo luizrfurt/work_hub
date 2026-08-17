@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
-    upload_max_size_mb: int = 10
+    upload_max_size_mb: int = 5
     upload_directory: str = "./uploads"
     storage_quota_gb: int = 10
     db_pool_size: int = 5

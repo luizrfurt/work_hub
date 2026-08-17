@@ -98,6 +98,10 @@ export function ChatTab({ projectId }: ChatTabProps) {
   }
 
   async function handleFile(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Arquivo excede o limite de 5 MB.')
+      return
+    }
     setSending(true)
     setError('')
     try {
@@ -170,7 +174,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,text/plain,.jpg,.jpeg,.png,.webp,.txt"
+            accept="image/jpeg,image/png,image/webp,text/plain,application/zip,.jpg,.jpeg,.png,.webp,.txt,.zip"
             hidden
             onChange={(event) => {
               const file = event.target.files?.[0]
@@ -180,7 +184,12 @@ export function ChatTab({ projectId }: ChatTabProps) {
               }
             }}
           />
-          <Button variant="ghost" type="button" onClick={() => fileRef.current?.click()}>
+          <Button
+            variant="ghost"
+            type="button"
+            title="JPEG, PNG, WEBP, TXT ou ZIP até 5 MB"
+            onClick={() => fileRef.current?.click()}
+          >
             Anexar
           </Button>
           <Button type="submit" disabled={sending}>

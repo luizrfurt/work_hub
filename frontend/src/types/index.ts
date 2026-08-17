@@ -75,6 +75,7 @@ export interface Task {
   created_by: number
   created_at: string
   updated_at: string
+  attachments: Attachment[]
 }
 
 export interface ApiError {

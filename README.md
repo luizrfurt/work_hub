@@ -10,7 +10,7 @@ O MVP inclui:
 - dashboard para administradores (tarefas ativas, concluídas e por pessoa);
 - chat em tempo real por projeto (WebSocket);
 - aviso de nova mensagem mesmo fora do projeto (som, badge em Projetos e no card);
-- anexos de imagem (JPEG, PNG, WEBP), TXT e ZIP, até 5 MB;
+- anexos de imagem (JPEG, PNG, WEBP), TXT e ZIP, até 5 MB, no chat e nas tarefas;
 - lista de tarefas por projeto, com ordem livre e status A fazer / Em andamento / Concluído.
 
 ## Stack

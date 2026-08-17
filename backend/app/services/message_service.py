@@ -3,8 +3,8 @@ from uuid import uuid4
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.exceptions import AppError
+from app.core.uploads import validate_upload
 from app.models.attachment import MessageAttachment
 from app.models.message import Message
 from app.models.user import User
@@ -13,28 +13,6 @@ from app.repositories.message_repository import MessageRepository
 from app.schemas.message import AttachmentPublic, MessageList, MessagePublic
 from app.services.project_service import ProjectService
 from app.storage import storage
-
-ALLOWED_BY_EXTENSION = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".txt": "text/plain",
-    ".zip": "application/zip",
-}
-
-MIME_ALIASES = {
-    "application/x-zip-compressed": "application/zip",
-    "application/x-zip": "application/zip",
-}
-
-MAGIC_CHECKS = {
-    "image/jpeg": lambda data: data[:3] == b"\xff\xd8\xff",
-    "image/png": lambda data: data[:8] == b"\x89PNG\r\n\x1a\n",
-    "image/webp": lambda data: data[:4] == b"RIFF" and data[8:12] == b"WEBP",
-    "text/plain": lambda data: b"\x00" not in data[:1024],
-    "application/zip": lambda data: data[:4] in {b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"},
-}
 
 
 class MessageService:
@@ -77,7 +55,7 @@ class MessageService:
     ) -> MessagePublic:
         project = self.project_service.assert_can_access(project_id, actor)
         data = file.file.read()
-        mime_type, original_name = self._validate_file(file, data)
+        mime_type, original_name = validate_upload(file, data)
         text = (content or "").strip() or None
 
         message = Message(project_id=project_id, user_id=actor.id, content=text)
@@ -112,31 +90,6 @@ class MessageService:
         if message is None or message.project_id != project_id:
             raise AppError("Anexo não encontrado.", status_code=404)
         return attachment
-
-    def _validate_file(self, file: UploadFile, data: bytes) -> tuple[str, str]:
-        settings = get_settings()
-        if not data:
-            raise AppError("Arquivo vazio.")
-        if len(data) > settings.upload_max_size_bytes:
-            raise AppError(f"Arquivo excede o limite de {settings.upload_max_size_mb} MB.")
-
-        original_name = (file.filename or "arquivo").strip()
-        extension = ""
-        if "." in original_name:
-            extension = "." + original_name.rsplit(".", 1)[-1].lower()
-
-        mime_type = ALLOWED_BY_EXTENSION.get(extension)
-        if mime_type is None:
-            raise AppError("Tipo de arquivo não permitido. Envie JPEG, PNG, WEBP, TXT ou ZIP.")
-
-        declared = (file.content_type or "").split(";")[0].strip().lower()
-        declared = MIME_ALIASES.get(declared, declared)
-        if declared and declared not in {"application/octet-stream", mime_type}:
-            raise AppError("A extensão do arquivo não corresponde ao tipo informado.")
-        if not MAGIC_CHECKS[mime_type](data):
-            raise AppError("O conteúdo do arquivo não corresponde ao tipo informado.")
-
-        return mime_type, original_name
 
     def _publish_message(self, project_id: int, project_name: str, author_id: int, public: MessagePublic) -> None:
         event = {

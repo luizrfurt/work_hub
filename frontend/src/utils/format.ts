@@ -31,6 +31,36 @@ export function statusLabel(status: string): string {
   return 'Concluído'
 }
 
+export function statusColumnClass(status: string): string {
+  if (status === 'IN_PROGRESS') {
+    return 'shadow-[inset_0_0_0_1px_rgba(110,168,255,0.34)] bg-[rgba(110,168,255,0.07)]'
+  }
+  if (status === 'DONE') {
+    return 'shadow-[inset_0_0_0_1px_rgba(109,255,176,0.3)] bg-[rgba(109,255,176,0.06)]'
+  }
+  return 'shadow-[inset_0_0_0_1px_rgba(148,163,184,0.32)] bg-[rgba(148,163,184,0.07)]'
+}
+
+export function statusTitleClass(status: string): string {
+  if (status === 'IN_PROGRESS') {
+    return 'text-primary'
+  }
+  if (status === 'DONE') {
+    return 'text-ok'
+  }
+  return 'text-[rgb(176,188,204)]'
+}
+
+export function statusBadgeClass(status: string): string {
+  if (status === 'IN_PROGRESS') {
+    return 'border-[rgba(110,168,255,0.35)] bg-[rgba(110,168,255,0.14)] text-primary'
+  }
+  if (status === 'DONE') {
+    return 'border-[rgba(109,255,176,0.35)] bg-[rgba(109,255,176,0.12)] text-ok'
+  }
+  return 'border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.12)] text-[rgb(176,188,204)]'
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) {

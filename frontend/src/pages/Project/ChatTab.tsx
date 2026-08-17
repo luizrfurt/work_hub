@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { listMessages, sendMessage, uploadAttachment } from '../../api/messages'
 import { attachmentUrl } from '../../api/client'
+import { AttachmentView } from '../../components/AttachmentView'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { UserAvatar } from '../../components/UserAvatar'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,7 +10,7 @@ import { useNotifications } from '../../contexts/NotificationsContext'
 import { useProjectRealtime, useRealtimeMessages } from '../../contexts/ProjectRealtimeContext'
 import type { Message } from '../../types'
 import { formatDateTime, getErrorMessage } from '../../utils/format'
-import { getAccessToken } from '../../utils/storage'
+import { isOverUploadLimit, UPLOAD_ACCEPT, UPLOAD_HINT } from '../../utils/uploads'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -98,7 +99,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
   }
 
   async function handleFile(file: File) {
-    if (file.size > 5 * 1024 * 1024) {
+    if (isOverUploadLimit(file.size)) {
       setError('Arquivo excede o limite de 5 MB.')
       return
     }
@@ -150,8 +151,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
                   {message.attachments.map((attachment) => (
                     <AttachmentView
                       key={attachment.id}
-                      projectId={projectId}
-                      attachmentId={attachment.id}
+                      url={attachmentUrl(projectId, attachment.id)}
                       mimeType={attachment.mime_type}
                       name={attachment.original_name}
                     />
@@ -174,7 +174,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,text/plain,application/zip,.jpg,.jpeg,.png,.webp,.txt,.zip"
+            accept={UPLOAD_ACCEPT}
             hidden
             onChange={(event) => {
               const file = event.target.files?.[0]
@@ -187,7 +187,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
           <Button
             variant="ghost"
             type="button"
-            title="JPEG, PNG, WEBP, TXT ou ZIP até 5 MB"
+            title={UPLOAD_HINT}
             onClick={() => fileRef.current?.click()}
           >
             Anexar
@@ -198,63 +198,5 @@ export function ChatTab({ projectId }: ChatTabProps) {
         </form>
       </div>
     </div>
-  )
-}
-
-function AttachmentView({
-  projectId,
-  attachmentId,
-  mimeType,
-  name,
-}: {
-  projectId: string
-  attachmentId: number
-  mimeType: string
-  name: string
-}) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    const token = getAccessToken()
-    if (!token) {
-      return
-    }
-    let revoked = false
-    let createdUrl: string | null = null
-    fetch(attachmentUrl(projectId, attachmentId), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((response) => response.blob())
-      .then((blob) => {
-        createdUrl = URL.createObjectURL(blob)
-        if (!revoked) {
-          setObjectUrl(createdUrl)
-        } else {
-          URL.revokeObjectURL(createdUrl)
-        }
-      })
-      .catch(() => undefined)
-    return () => {
-      revoked = true
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl)
-      }
-    }
-  }, [projectId, attachmentId])
-
-  if (mimeType.startsWith('image/')) {
-    return objectUrl ? (
-      <img className="my-[0.45rem] block max-w-[260px] rounded-[10px]" src={objectUrl} alt={name} />
-    ) : (
-      <p className="text-muted-foreground">{name}</p>
-    )
-  }
-
-  return objectUrl ? (
-    <a className="text-primary underline" href={objectUrl} download={name}>
-      {name}
-    </a>
-  ) : (
-    <span className="text-muted-foreground">{name}</span>
   )
 }

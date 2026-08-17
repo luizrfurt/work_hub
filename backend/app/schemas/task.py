@@ -2,6 +2,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.task import TaskStatus
+from app.schemas.message import AttachmentPublic
 
 
 class TaskCreate(BaseModel):
@@ -37,3 +38,4 @@ class TaskPublic(BaseModel):
     created_by: int
     created_at: datetime
     updated_at: datetime
+    attachments: list[AttachmentPublic] = []

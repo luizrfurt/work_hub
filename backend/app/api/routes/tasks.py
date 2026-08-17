@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -6,6 +7,7 @@ from app.database.connection import get_db
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskPublic, TaskUpdate
 from app.services.task_service import TaskService
+from app.storage import storage
 
 router = APIRouter(prefix="/projects/{project_id}/tasks", tags=["tasks"])
 
@@ -48,3 +50,43 @@ def update_task(
     current_user: User = Depends(get_current_user),
 ) -> TaskPublic:
     return TaskService(db).update_task(project_id, task_id, payload, current_user)
+
+
+@router.post("/{task_id}/attachments", response_model=TaskPublic, status_code=201)
+async def upload_task_attachment(
+    project_id: int,
+    task_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskPublic:
+    return TaskService(db).add_attachment(project_id, task_id, current_user, file)
+
+
+@router.get("/{task_id}/attachments/{attachment_id}")
+def download_task_attachment(
+    project_id: int,
+    task_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    attachment = TaskService(db).get_attachment_for_download(
+        project_id, task_id, attachment_id, current_user
+    )
+    return FileResponse(
+        path=storage.path_for(attachment.storage_key),
+        media_type=attachment.mime_type,
+        filename=attachment.original_name,
+    )
+
+
+@router.delete("/{task_id}/attachments/{attachment_id}", response_model=TaskPublic)
+def delete_task_attachment(
+    project_id: int,
+    task_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskPublic:
+    return TaskService(db).delete_attachment(project_id, task_id, attachment_id, current_user)

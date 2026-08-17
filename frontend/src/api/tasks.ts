@@ -36,3 +36,25 @@ export async function updateTask(
   const { data } = await api.patch<Task>(`/projects/${projectId}/tasks/${taskId}`, payload)
   return data
 }
+
+export async function uploadTaskAttachment(
+  projectId: number | string,
+  taskId: number | string,
+  file: File,
+): Promise<Task> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post<Task>(`/projects/${projectId}/tasks/${taskId}/attachments`, form)
+  return data
+}
+
+export async function deleteTaskAttachment(
+  projectId: number | string,
+  taskId: number | string,
+  attachmentId: number | string,
+): Promise<Task> {
+  const { data } = await api.delete<Task>(
+    `/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
+  )
+  return data
+}

@@ -1,13 +1,20 @@
+from uuid import uuid4
+
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.uploads import validate_upload
 from app.models.task import Task, TaskStatus
+from app.models.task_attachment import TaskAttachment
 from app.models.user import User
 from app.realtime.manager import connection_manager
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.task_repository import TaskRepository
+from app.schemas.message import AttachmentPublic
 from app.schemas.task import TaskCreate, TaskPublic, TaskUpdate
 from app.services.project_service import ProjectService
+from app.storage import storage
 
 
 class TaskService:
@@ -89,6 +96,60 @@ class TaskService:
             self._broadcast_many(project_id, publics)
         return self._to_public(current)
 
+    def add_attachment(
+        self, project_id: int, task_id: int, actor: User, file: UploadFile
+    ) -> TaskPublic:
+        self.project_service.assert_can_access(project_id, actor)
+        task = self._get_task_in_project(project_id, task_id)
+        data = file.file.read()
+        mime_type, original_name = validate_upload(file, data)
+        storage_key = f"{project_id}/{uuid4()}_{original_name}"
+        storage.save(storage_key, data)
+        self.tasks.add_attachment(
+            TaskAttachment(
+                task_id=task.id,
+                original_name=original_name,
+                storage_key=storage_key,
+                mime_type=mime_type,
+                size=len(data),
+            )
+        )
+        self.db.commit()
+        stored = self.tasks.get_by_id(task.id)
+        assert stored is not None
+        public = self._to_public(stored)
+        self._broadcast(project_id, public)
+        return public
+
+    def get_attachment_for_download(
+        self, project_id: int, task_id: int, attachment_id: int, actor: User
+    ) -> TaskAttachment:
+        self.project_service.assert_can_access(project_id, actor)
+        attachment = self.tasks.get_attachment(attachment_id)
+        if attachment is None:
+            raise NotFoundError("Anexo não encontrado.")
+        task = self.tasks.get_by_id(attachment.task_id)
+        if task is None or task.project_id != project_id or task.id != task_id:
+            raise NotFoundError("Anexo não encontrado.")
+        return attachment
+
+    def delete_attachment(
+        self, project_id: int, task_id: int, attachment_id: int, actor: User
+    ) -> TaskPublic:
+        attachment = self.get_attachment_for_download(project_id, task_id, attachment_id, actor)
+        storage_key = attachment.storage_key
+        self.tasks.delete_attachment(attachment)
+        self.db.commit()
+        try:
+            storage.delete(storage_key)
+        except ValueError:
+            pass
+        stored = self.tasks.get_by_id(task_id)
+        assert stored is not None
+        public = self._to_public(stored)
+        self._broadcast(project_id, public)
+        return public
+
     def _place_new_slot(self, project_id: int, status: TaskStatus, index: int) -> None:
         column = self.tasks.list_by_project_status(project_id, status)
         index = max(0, min(index, len(column)))
@@ -162,4 +223,14 @@ class TaskService:
             created_by=task.created_by,
             created_at=task.created_at,
             updated_at=task.updated_at,
+            attachments=[
+                AttachmentPublic(
+                    id=item.id,
+                    original_name=item.original_name,
+                    mime_type=item.mime_type,
+                    size=item.size,
+                    created_at=item.created_at,
+                )
+                for item in task.attachments or []
+            ],
         )

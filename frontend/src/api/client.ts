@@ -104,4 +104,12 @@ export function attachmentUrl(projectId: number | string, attachmentId: number |
   return `${API_URL}/projects/${projectId}/attachments/${attachmentId}`
 }
 
+export function taskAttachmentUrl(
+  projectId: number | string,
+  taskId: number | string,
+  attachmentId: number | string,
+): string {
+  return `${API_URL}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`
+}
+
 export const wsBaseUrl = rewriteForLan(import.meta.env.VITE_WS_URL || configuredApi, true)

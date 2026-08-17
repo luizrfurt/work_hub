@@ -62,6 +62,7 @@ class ProjectService:
         require_admin(actor)
         project = self._require_accessible_project(project_id, actor)
         attachment_keys = self.messages.list_attachment_keys_for_project(project.id)
+        attachment_keys.extend(self.tasks.list_attachment_keys_for_project(project.id))
         self.projects.delete(project)
         self.db.commit()
         connection_manager.disconnect_room(project_id)
@@ -166,6 +167,11 @@ class ProjectService:
         used_bytes, file_count = self.messages.sum_attachment_usage_for_organization(
             actor.organization_id
         )
+        task_bytes, task_files = self.tasks.sum_attachment_usage_for_organization(
+            actor.organization_id
+        )
+        used_bytes += task_bytes
+        file_count += task_files
         return OverviewPublic(
             project_count=len(overview_projects),
             people_count=self.projects.count_distinct_members_for_organization(

@@ -185,7 +185,7 @@ docker compose up -d --build
 docker compose exec workhub-api alembic upgrade head
 ```
 
-O schema atual está em **uma única** revision `001_initial` (inclui organizações). Se o banco já existia com o schema antigo, recrie o volume (passo de reset) e rode `alembic upgrade head` de novo.
+O schema atual inclui a revision `002_task_attachments`. Depois de `git pull`, rode `alembic upgrade head`. Se o banco já existia com o schema antigo (sem organizações), recrie o volume (passo de reset) e rode `alembic upgrade head` de novo.
 
 ### Reset completo (perigoso)
 

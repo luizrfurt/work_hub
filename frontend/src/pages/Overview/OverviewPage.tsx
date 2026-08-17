@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { getOverview } from '../../api/projects'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import type { Overview } from '../../types'
-import { formatBytes, getErrorMessage } from '../../utils/format'
+import { formatBytes, getErrorMessage, statusTitleClass } from '../../utils/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
@@ -86,14 +86,18 @@ export function OverviewPage() {
               <CardContent className="grid gap-[0.2rem]">
                 <span className="text-muted-foreground">Tarefas ativas</span>
                 <strong className="text-[1.7rem] leading-[1.1] tracking-[-0.03em]">{overview.active}</strong>
-                <small className="text-muted-foreground">
-                  {overview.todo} a fazer · {overview.in_progress} em andamento
+                <small>
+                  <span className={statusTitleClass('TODO')}>{overview.todo} a fazer</span>
+                  {' · '}
+                  <span className={statusTitleClass('IN_PROGRESS')}>
+                    {overview.in_progress} em andamento
+                  </span>
                 </small>
               </CardContent>
             </Card>
             <Card className="gap-1">
               <CardContent className="grid gap-[0.2rem]">
-                <span className="text-muted-foreground">Concluídas</span>
+                <span className={statusTitleClass('DONE')}>Concluídas</span>
                 <strong className="text-[1.7rem] leading-[1.1] tracking-[-0.03em]">{overview.done}</strong>
                 <small className="text-muted-foreground">
                   {percent(overview.done, overview.total)}% do total ({overview.total})
@@ -117,9 +121,9 @@ export function OverviewPage() {
                     <TableRow>
                       <TableHead>Projeto</TableHead>
                       <TableHead>Membros</TableHead>
-                      <TableHead>A fazer</TableHead>
-                      <TableHead>Em andamento</TableHead>
-                      <TableHead>Concluídas</TableHead>
+                      <TableHead className={statusTitleClass('TODO')}>A fazer</TableHead>
+                      <TableHead className={statusTitleClass('IN_PROGRESS')}>Em andamento</TableHead>
+                      <TableHead className={statusTitleClass('DONE')}>Concluídas</TableHead>
                       <TableHead>Progresso</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -172,9 +176,9 @@ export function OverviewPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Pessoa</TableHead>
-                      <TableHead>A fazer</TableHead>
-                      <TableHead>Em andamento</TableHead>
-                      <TableHead>Concluídas</TableHead>
+                      <TableHead className={statusTitleClass('TODO')}>A fazer</TableHead>
+                      <TableHead className={statusTitleClass('IN_PROGRESS')}>Em andamento</TableHead>
+                      <TableHead className={statusTitleClass('DONE')}>Concluídas</TableHead>
                       <TableHead>Total</TableHead>
                     </TableRow>
                   </TableHeader>

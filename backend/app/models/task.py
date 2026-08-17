@@ -47,3 +47,6 @@ class Task(Base):
     project = relationship("Project", back_populates="tasks")
     assigned_user = relationship("User", foreign_keys=[assigned_user_id])
     creator = relationship("User", foreign_keys=[created_by])
+    attachments = relationship(
+        "TaskAttachment", back_populates="task", cascade="all, delete-orphan"
+    )

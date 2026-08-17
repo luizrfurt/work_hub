@@ -1,11 +1,14 @@
-import { type DragEvent, type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
-import { createTask, listTasks, updateTask } from '../../api/tasks'
+import { createTask, deleteTaskAttachment, listTasks, updateTask, uploadTaskAttachment } from '../../api/tasks'
+import { taskAttachmentUrl } from '../../api/client'
+import { AttachmentView } from '../../components/AttachmentView'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { Field } from '../../components/Field'
 import { useRealtimeTasks } from '../../contexts/ProjectRealtimeContext'
 import type { ProjectMember, Task, TaskStatus } from '../../types'
-import { formatDate, getErrorMessage, statusLabel } from '../../utils/format'
+import { formatDate, getErrorMessage, statusBadgeClass, statusColumnClass, statusLabel, statusTitleClass } from '../../utils/format'
+import { isOverUploadLimit, UPLOAD_ACCEPT, UPLOAD_HINT } from '../../utils/uploads'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -198,7 +201,8 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
             <section
               key={status}
               className={cn(
-                'flex min-h-0 flex-col overflow-hidden rounded-xl border border-dashed border-transparent bg-black/18 p-[0.85rem] shadow-[inset_0_0_0_1px_var(--border)] transition-[border-color,background] duration-150 max-[800px]:min-h-[240px]',
+                'flex min-h-0 flex-col overflow-hidden rounded-xl border border-dashed border-transparent p-[0.85rem] transition-[border-color,background] duration-150 max-[800px]:min-h-[240px]',
+                statusColumnClass(status),
                 overStatus === status &&
                   'border-[rgba(110,168,255,0.55)] bg-[rgba(110,168,255,0.08)]',
               )}
@@ -222,11 +226,11 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 setDraggingId(null)
               }}
             >
-              <h3 className="mb-3 flex shrink-0 items-center justify-between gap-2 text-[0.95rem] font-semibold">
+              <h3 className={cn('mb-3 flex shrink-0 items-center justify-between gap-2 text-[0.95rem] font-semibold', statusTitleClass(status))}>
                 {statusLabel(status)}
                 <Badge
                   variant="outline"
-                  className="h-6 min-w-6 rounded-full border-border bg-white/6 px-1.5 text-foreground"
+                  className={cn('h-6 min-w-6 rounded-full px-1.5', statusBadgeClass(status))}
                 >
                   {column.length}
                 </Badge>
@@ -253,6 +257,7 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                 {column.map((task) => (
                   <TaskCard
                     key={task.id}
+                    projectId={projectId}
                     task={task}
                     members={members}
                     dropEdge={
@@ -290,6 +295,8 @@ export function TodoTab({ projectId, members }: TodoTabProps) {
                       }
                     }}
                     onSave={(payload) => void handleSave(task, payload)}
+                    onError={(message) => setError(message)}
+                    onTaskChange={upsertTask}
                   />
                 ))}
               </div>
@@ -395,6 +402,7 @@ function ColumnComposer({
 }
 
 function TaskCard({
+  projectId,
   task,
   members,
   dropEdge,
@@ -404,7 +412,10 @@ function TaskCard({
   onDragOverCard,
   onDropCard,
   onSave,
+  onError,
+  onTaskChange,
 }: {
+  projectId: string
   task: Task
   members: ProjectMember[]
   dropEdge: 'before' | 'after' | null
@@ -420,6 +431,8 @@ function TaskCard({
     assigned_user_id: number
     status: TaskStatus
   }) => void
+  onError: (message: string) => void
+  onTaskChange: (task: Task) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -427,6 +440,8 @@ function TaskCard({
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [assignedUserId, setAssignedUserId] = useState(task.assigned_user_id)
   const [status, setStatus] = useState<TaskStatus>(task.status)
+  const [attaching, setAttaching] = useState(false)
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setTitle(task.title)
@@ -435,6 +450,31 @@ function TaskCard({
     setAssignedUserId(task.assigned_user_id)
     setStatus(task.status)
   }, [task])
+
+  async function handleAttach(file: File) {
+    if (isOverUploadLimit(file.size)) {
+      onError('Arquivo excede o limite de 5 MB.')
+      return
+    }
+    setAttaching(true)
+    onError('')
+    try {
+      onTaskChange(await uploadTaskAttachment(projectId, task.id, file))
+    } catch (err) {
+      onError(getErrorMessage(err, 'Não foi possível enviar o arquivo.'))
+    } finally {
+      setAttaching(false)
+    }
+  }
+
+  async function handleRemoveAttachment(attachmentId: number) {
+    onError('')
+    try {
+      onTaskChange(await deleteTaskAttachment(projectId, task.id, attachmentId))
+    } catch (err) {
+      onError(getErrorMessage(err, 'Não foi possível remover o anexo.'))
+    }
+  }
 
   if (editing) {
     return (
@@ -474,12 +514,44 @@ function TaskCard({
                 </SelectTrigger>
                 <SelectContent position="popper">
                   {COLUMNS.map((option) => (
-                    <SelectItem key={option} value={option}>
+                    <SelectItem key={option} value={option} className={statusTitleClass(option)}>
                       {statusLabel(option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
+            <Field label="Anexos">
+              <TaskAttachments
+                projectId={projectId}
+                task={task}
+                canRemove
+                onRemove={(attachmentId) => void handleRemoveAttachment(attachmentId)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2 w-fit"
+                disabled={attaching}
+                title={UPLOAD_HINT}
+                onClick={() => fileRef.current?.click()}
+              >
+                {attaching ? 'Enviando...' : 'Anexar'}
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={UPLOAD_ACCEPT}
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) {
+                    void handleAttach(file)
+                    event.target.value = ''
+                  }
+                }}
+              />
             </Field>
             <div className="flex gap-[0.6rem] max-[800px]:grid max-[800px]:grid-cols-1">
               <Button
@@ -519,7 +591,7 @@ function TaskCard({
       onDragOver={onDragOverCard}
       onDrop={onDropCard}
       onDragStart={(event) => {
-        if ((event.target as HTMLElement).closest('button, form')) {
+        if ((event.target as HTMLElement).closest('button, form, a, input')) {
           event.preventDefault()
           return
         }
@@ -534,9 +606,83 @@ function TaskCard({
       {task.description && <p>{task.description}</p>}
       <p className="text-muted-foreground">Responsável: {task.assigned_user_name}</p>
       {task.due_date && <p className="text-muted-foreground">Prazo: {formatDate(task.due_date)}</p>}
-      <Button variant="ghost" size="sm" type="button" className="w-fit" onClick={() => setEditing(true)}>
-        Editar
-      </Button>
+      <TaskAttachments
+        projectId={projectId}
+        task={task}
+        canRemove
+        onRemove={(attachmentId) => void handleRemoveAttachment(attachmentId)}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) {
+            void handleAttach(file)
+            event.target.value = ''
+          }
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" size="sm" type="button" className="w-fit" onClick={() => setEditing(true)}>
+          Editar
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          className="w-fit"
+          disabled={attaching}
+          title={UPLOAD_HINT}
+          onClick={() => fileRef.current?.click()}
+        >
+          {attaching ? 'Enviando...' : 'Anexar'}
+        </Button>
+      </div>
     </article>
+  )
+}
+
+function TaskAttachments({
+  projectId,
+  task,
+  canRemove,
+  onRemove,
+}: {
+  projectId: string
+  task: Task
+  canRemove?: boolean
+  onRemove?: (attachmentId: number) => void
+}) {
+  const attachments = task.attachments ?? []
+  if (attachments.length === 0) {
+    return null
+  }
+  return (
+    <div className="grid gap-2">
+      {attachments.map((attachment) => (
+        <div key={attachment.id} className="flex flex-wrap items-start gap-2">
+          <AttachmentView
+            url={taskAttachmentUrl(projectId, task.id, attachment.id)}
+            mimeType={attachment.mime_type}
+            name={attachment.original_name}
+            imageClassName="max-w-[160px] my-0"
+          />
+          {canRemove && onRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground"
+              onClick={() => onRemove(attachment.id)}
+            >
+              Remover
+            </Button>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }

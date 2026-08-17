@@ -147,6 +147,68 @@ def test_outsider_cannot_access_tasks(client, unique):
     assert response.status_code == 403
 
 
+def test_member_can_attach_file_to_task(client, unique):
+    admin = register_admin(client, unique)
+    collab = create_collaborator(client, admin["access_token"], unique)
+    project = client.post(
+        "/projects",
+        json={"name": f"Projeto anexo {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    client.post(
+        f"/projects/{project['id']}/members",
+        json={"user_id": collab["user"]["id"]},
+        headers=auth_header(admin["access_token"]),
+    )
+    task = client.post(
+        f"/projects/{project['id']}/tasks",
+        json={"title": "Com anexo", "assigned_user_id": collab["user"]["id"]},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    assert task["attachments"] == []
+
+    uploaded = client.post(
+        f"/projects/{project['id']}/tasks/{task['id']}/attachments",
+        files={"file": ("nota.txt", b"texto da tarefa", "text/plain")},
+        headers=auth_header(collab["access_token"]),
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    body = uploaded.json()
+    assert len(body["attachments"]) == 1
+    assert body["attachments"][0]["original_name"] == "nota.txt"
+    assert body["attachments"][0]["mime_type"] == "text/plain"
+
+    attachment_id = body["attachments"][0]["id"]
+    download = client.get(
+        f"/projects/{project['id']}/tasks/{task['id']}/attachments/{attachment_id}",
+        headers=auth_header(collab["access_token"]),
+    )
+    assert download.status_code == 200
+    assert download.content == b"texto da tarefa"
+
+
+def test_outsider_cannot_attach_file_to_task(client, unique):
+    admin = register_admin(client, unique)
+    outsider = create_collaborator(client, admin["access_token"], unique, "out")
+    project = client.post(
+        "/projects",
+        json={"name": f"Projeto anexo fora {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    task = client.post(
+        f"/projects/{project['id']}/tasks",
+        json={"title": "Sem outsider", "assigned_user_id": admin["user"]["id"]},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+
+    response = client.post(
+        f"/projects/{project['id']}/tasks/{task['id']}/attachments",
+        files={"file": ("nota.txt", b"nao", "text/plain")},
+        headers=auth_header(outsider["access_token"]),
+    )
+    assert response.status_code == 403
+
+
 def test_cannot_assign_task_to_non_member(client, unique):
     admin = register_admin(client, unique)
     outsider = create_collaborator(client, admin["access_token"], unique, "out")

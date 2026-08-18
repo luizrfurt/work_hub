@@ -30,7 +30,9 @@ def create_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MessagePublic:
-    return MessageService(db).create_text_message(project_id, payload.content, current_user)
+    return MessageService(db).create_text_message(
+        project_id, payload.content, current_user, payload.reply_to_id
+    )
 
 
 @router.patch("/messages/{message_id}", response_model=MessagePublic)
@@ -61,11 +63,12 @@ async def upload_attachment(
     project_id: int,
     file: UploadFile = File(...),
     content: str | None = Form(default=None),
+    reply_to_id: int | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MessagePublic:
     return MessageService(db).create_message_with_attachment(
-        project_id, current_user, file, content
+        project_id, current_user, file, content, reply_to_id
     )
 
 

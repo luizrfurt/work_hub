@@ -75,6 +75,17 @@ async def project_chat_ws(
                 )
                 continue
 
+            raw_reply = body.get("reply_to_id")
+            reply_to_id = None
+            if raw_reply is not None and raw_reply != "":
+                try:
+                    reply_to_id = int(raw_reply)
+                except (TypeError, ValueError):
+                    await websocket.send_json(
+                        {"type": "error", "payload": {"message": "Resposta inválida."}}
+                    )
+                    continue
+
             message_db = SessionLocal()
             try:
                 current_user = message_db.get(User, user_id)
@@ -83,7 +94,9 @@ async def project_chat_ws(
                         {"type": "error", "payload": {"message": "Sessão inválida."}}
                     )
                     break
-                MessageService(message_db).create_text_message(project_id, content, current_user)
+                MessageService(message_db).create_text_message(
+                    project_id, content, current_user, reply_to_id
+                )
             except AppError as exc:
                 await websocket.send_json({"type": "error", "payload": {"message": exc.message}})
             finally:

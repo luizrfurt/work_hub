@@ -16,7 +16,7 @@ type TaskListener = (task: Task) => void
 type TaskDeletedListener = (taskId: number) => void
 
 interface ProjectRealtimeValue {
-  send: (content: string) => boolean
+  send: (content: string, replyToId?: number | null) => boolean
   connected: boolean
   subscribeMessages: (listener: MessageListener) => () => void
   subscribeTasks: (listener: TaskListener) => () => void

@@ -45,6 +45,14 @@ export interface Attachment {
   created_at: string
 }
 
+export interface ReplyPreview {
+  id: number
+  author_name: string
+  content: string | null
+  deleted: boolean
+  has_attachment: boolean
+}
+
 export interface Message {
   id: number
   project_id: number
@@ -55,6 +63,7 @@ export interface Message {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  reply_to: ReplyPreview | null
 }
 
 export interface MessageList {

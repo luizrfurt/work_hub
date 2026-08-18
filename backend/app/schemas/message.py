@@ -14,6 +14,15 @@ class AttachmentPublic(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
+    reply_to_id: int | None = None
+
+
+class ReplyPreview(BaseModel):
+    id: int
+    author_name: str
+    content: str | None
+    deleted: bool
+    has_attachment: bool
 
 
 class MessageUpdate(BaseModel):
@@ -32,6 +41,7 @@ class MessagePublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+    reply_to: ReplyPreview | None = None
 
 
 class MessageList(BaseModel):

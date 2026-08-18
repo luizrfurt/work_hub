@@ -45,4 +45,5 @@ def test_member_is_notified_without_being_in_project_room(client, unique):
         assert event["type"] == "message"
         assert event["payload"]["content"] == "Tem alguém aí?"
         assert event["payload"]["project_id"] == project["id"]
+        assert event["payload"]["reply_to"] is None
         assert event["project_name"] == project["name"]

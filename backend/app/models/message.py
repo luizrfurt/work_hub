@@ -26,9 +26,17 @@ class Message(Base):
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reply_to_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     project = relationship("Project", back_populates="messages")
     author = relationship("User")
+    reply_to: Mapped["Message | None"] = relationship(
+        "Message",
+        remote_side="Message.id",
+        foreign_keys=[reply_to_id],
+    )
     attachments = relationship(
         "MessageAttachment", back_populates="message", cascade="all, delete-orphan"
     )

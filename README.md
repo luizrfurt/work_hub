@@ -8,7 +8,7 @@ O MVP inclui:
 - cadastro de usuários somente pelo administrador;
 - projetos e membership (somente o administrador cria, edita, exclui e gerencia pessoas);
 - dashboard para administradores (tarefas ativas, concluídas e por pessoa);
-- chat em tempo real por projeto (WebSocket);
+- chat em tempo real por projeto (WebSocket), com resposta citada no estilo WhatsApp;
 - aviso de nova mensagem mesmo fora do projeto (som, badge em Projetos e no card);
 - anexos de imagem (JPEG, PNG, WEBP), TXT e ZIP, até 5 MB, no chat e nas tarefas;
 - lista de tarefas por projeto, com ordem livre e status A fazer / Em andamento / Concluído.
@@ -114,11 +114,11 @@ python -m app.scripts.create_admin --name "Administrador" --username admin --org
 uvicorn main:app --reload --host 0.0.0.0
 ```
 
-Há **uma única migration** (`001_initial`), com organizações, usuários, projetos, chat e tarefas. Os IDs das tabelas são inteiros autoincrementais, não UUID.
+Há as migrations `001_initial` (organizações, usuários, projetos, chat e tarefas) e `002_message_reply_to` (resposta citada no chat). Os IDs das tabelas são inteiros autoincrementais, não UUID.
 
 Ao criar o primeiro administrador, o sistema cria automaticamente uma **organização** e coloca esse usuário como administrador dela. Os usuários que ele cadastrar passam a pertencer à mesma organização. Administradores não veem usuários nem projetos de outras organizações.
 
-Se o banco já existia com o schema antigo, recrie o banco (ou apague todas as tabelas, incluindo `alembic_version`) e rode `alembic upgrade head` de novo. Depois recrie o admin. Dados anteriores não são migrados.
+Se o banco já está na `001_initial`, rode `alembic upgrade head` para aplicar a `002` — não é preciso apagar dados. Só recrie o banco se ele ainda tiver o schema antigo de antes da `001_initial`.
 
 O script de admin também aceita entrada interativa se os argumentos forem omitidos.
 

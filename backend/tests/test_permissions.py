@@ -518,3 +518,98 @@ def test_task_order_can_be_rearranged(client, unique):
     )
     assert [item["title"] for item in todo] == ["Terceira", "Segunda"]
     assert [item["title"] for item in progress] == ["Primeira"]
+
+
+def test_member_can_reply_to_message(client, unique):
+    admin = register_admin(client, unique)
+    author = create_collaborator(client, admin["access_token"], unique, "au")
+    other = create_collaborator(client, admin["access_token"], unique, "ot")
+    project = client.post(
+        "/projects",
+        json={"name": f"Projeto reply {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    other_project = client.post(
+        "/projects",
+        json={"name": f"Projeto reply fora {unique}"},
+        headers=auth_header(admin["access_token"]),
+    ).json()
+    for member in (author, other):
+        client.post(
+            f"/projects/{project['id']}/members",
+            json={"user_id": member["user"]["id"]},
+            headers=auth_header(admin["access_token"]),
+        )
+
+    original = client.post(
+        f"/projects/{project['id']}/messages",
+        json={"content": "Pergunta original"},
+        headers=auth_header(author["access_token"]),
+    )
+    assert original.status_code == 201, original.text
+    original_id = original.json()["id"]
+    assert original.json()["reply_to"] is None
+
+    missing = client.post(
+        f"/projects/{project['id']}/messages",
+        json={"content": "Sem original", "reply_to_id": 9_999_999},
+        headers=auth_header(other["access_token"]),
+    )
+    assert missing.status_code == 404
+
+    cross = client.post(
+        f"/projects/{other_project['id']}/messages",
+        json={"content": "Outro projeto", "reply_to_id": original_id},
+        headers=auth_header(admin["access_token"]),
+    )
+    assert cross.status_code == 404
+
+    replied = client.post(
+        f"/projects/{project['id']}/messages",
+        json={"content": "Resposta", "reply_to_id": original_id},
+        headers=auth_header(other["access_token"]),
+    )
+    assert replied.status_code == 201, replied.text
+    body = replied.json()
+    assert body["content"] == "Resposta"
+    assert body["reply_to"]["id"] == original_id
+    assert body["reply_to"]["author_name"] == author["user"]["name"]
+    assert body["reply_to"]["content"] == "Pergunta original"
+    assert body["reply_to"]["deleted"] is False
+    assert body["reply_to"]["has_attachment"] is False
+
+    edited = client.patch(
+        f"/projects/{project['id']}/messages/{original_id}",
+        json={"content": "Pergunta editada"},
+        headers=auth_header(author["access_token"]),
+    )
+    assert edited.status_code == 200, edited.text
+
+    listed = client.get(
+        f"/projects/{project['id']}/messages",
+        headers=auth_header(other["access_token"]),
+    ).json()
+    quote = next(item for item in listed["items"] if item["id"] == body["id"])
+    assert quote["reply_to"]["content"] == "Pergunta editada"
+
+    deleted = client.delete(
+        f"/projects/{project['id']}/messages/{original_id}",
+        headers=auth_header(author["access_token"]),
+    )
+    assert deleted.status_code == 200, deleted.text
+
+    listed = client.get(
+        f"/projects/{project['id']}/messages",
+        headers=auth_header(other["access_token"]),
+    ).json()
+    quote = next(item for item in listed["items"] if item["id"] == body["id"])
+    assert quote["reply_to"]["deleted"] is True
+    assert quote["reply_to"]["content"] is None
+
+    blocked = client.post(
+        f"/projects/{project['id']}/messages",
+        json={"content": "Tarde demais", "reply_to_id": original_id},
+        headers=auth_header(other["access_token"]),
+    )
+    assert blocked.status_code == 400
+    assert "excluída" in blocked.json()["message"]

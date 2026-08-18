@@ -98,12 +98,17 @@ export function useProjectSocket({ projectId, enabled, onEvent }: UseProjectSock
     }
   }, [projectId, enabled])
 
-  const send = useCallback((content: string): boolean => {
+  const send = useCallback((content: string, replyToId?: number | null): boolean => {
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false
     }
-    socket.send(JSON.stringify({ content }))
+    socket.send(
+      JSON.stringify({
+        content,
+        ...(replyToId != null ? { reply_to_id: replyToId } : {}),
+      }),
+    )
     return true
   }, [])
 

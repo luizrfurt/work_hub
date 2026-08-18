@@ -1,4 +1,4 @@
-import { Paperclip, Pencil, Send, Trash2 } from 'lucide-react'
+import { Paperclip, Pencil, Reply, Send, Trash2, X } from 'lucide-react'
 import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { deleteMessage, listMessages, sendMessage, updateMessage, uploadAttachment } from '../../api/messages'
@@ -14,7 +14,7 @@ import {
   useRealtimeMessages,
 } from '../../contexts/ProjectRealtimeContext'
 import { useOrgStorage } from '../../hooks/useOrgStorage'
-import type { Message } from '../../types'
+import type { Message, ReplyPreview } from '../../types'
 import { formatDateTime, getErrorMessage, isEdited } from '../../utils/format'
 import { checkUploadQuota } from '../../utils/quota'
 import {
@@ -34,12 +34,48 @@ interface ChatTabProps {
 
 const PAGE_SIZE = 50
 
+function previewFromMessage(message: Message): ReplyPreview {
+  const deleted = Boolean(message.deleted_at)
+  return {
+    id: message.id,
+    author_name: message.author_name,
+    content: deleted ? null : message.content,
+    deleted,
+    has_attachment: !deleted && message.attachments.length > 0,
+  }
+}
+
+function replySnippet(preview: ReplyPreview): string {
+  if (preview.deleted) {
+    return 'Mensagem excluída'
+  }
+  const text = preview.content?.trim()
+  if (text) {
+    return text
+  }
+  if (preview.has_attachment) {
+    return 'Anexo'
+  }
+  return 'Mensagem'
+}
+
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
   const byId = new Map(current.map((item) => [item.id, item]))
   for (const item of incoming) {
     byId.set(item.id, item)
   }
-  return [...byId.values()].sort((left, right) => left.created_at.localeCompare(right.created_at))
+  return [...byId.values()]
+    .map((item) => {
+      if (!item.reply_to) {
+        return item
+      }
+      const original = byId.get(item.reply_to.id)
+      if (!original) {
+        return item
+      }
+      return { ...item, reply_to: previewFromMessage(original) }
+    })
+    .sort((left, right) => left.created_at.localeCompare(right.created_at))
 }
 
 function dropDeletedFromNewest(current: Message[], newest: Message[]): Message[] {
@@ -63,10 +99,14 @@ export function ChatTab({ projectId }: ChatTabProps) {
   const [loading, setLoading] = useState(true)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [fileOver, setFileOver] = useState(false)
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [highlightedId, setHighlightedId] = useState<number | null>(null)
   const historyRef = useRef<HTMLDivElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const skipScrollRef = useRef(false)
   const restoreScrollRef = useRef<{ height: number; top: number } | null>(null)
+  const pendingJumpRef = useRef<number | null>(null)
 
   const appendMessage = useCallback((message: Message) => {
     setMessages((current) => mergeMessages(current, [message]))
@@ -79,6 +119,8 @@ export function ChatTab({ projectId }: ChatTabProps) {
     let active = true
     setMessages([])
     setTotal(0)
+    setReplyTo(null)
+    setHighlightedId(null)
     setLoading(true)
     listMessages(projectId, PAGE_SIZE, 0)
       .then((data) => {
@@ -155,6 +197,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
       setMessages((current) => mergeMessages(current, data.items))
       setTotal(data.total)
     } catch (err) {
+      pendingJumpRef.current = null
       setError(getErrorMessage(err, 'Não foi possível carregar mensagens anteriores.'))
     } finally {
       setLoadingOlder(false)
@@ -170,12 +213,13 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setSending(true)
     setError('')
     try {
-      const sent = send(text)
+      const sent = send(text, replyTo?.id)
       if (!sent) {
-        const message = await sendMessage(projectId, text)
+        const message = await sendMessage(projectId, text, replyTo?.id)
         setMessages((current) => mergeMessages(current, [message]))
       }
       setContent('')
+      setReplyTo(null)
       markRead(Number(projectId))
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível enviar a mensagem.'))
@@ -203,12 +247,15 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setError(quota.warning ?? (rejected > 0 ? 'Arquivos acima de 5 MB foram ignorados.' : ''))
     try {
       let caption = content.trim() || undefined
+      let replyId = replyTo?.id ?? null
       for (const file of accepted) {
-        const message = await uploadAttachment(projectId, file, caption)
+        const message = await uploadAttachment(projectId, file, caption, replyId)
         setMessages((current) => mergeMessages(current, [message]))
         caption = undefined
+        replyId = null
       }
       setContent('')
+      setReplyTo(null)
       markRead(Number(projectId))
       await refreshStorage()
     } catch (err) {
@@ -235,6 +282,65 @@ export function ChatTab({ projectId }: ChatTabProps) {
       setError(getErrorMessage(err, 'Não foi possível excluir a mensagem.'))
     }
   }
+
+  function highlightMessage(id: number) {
+    setHighlightedId(id)
+    window.setTimeout(() => {
+      setHighlightedId((current) => (current === id ? null : current))
+    }, 1600)
+  }
+
+  function startReply(message: Message) {
+    if (message.deleted_at) {
+      return
+    }
+    setReplyTo(message)
+    window.setTimeout(() => composerRef.current?.focus(), 0)
+  }
+
+  function jumpToMessage(id: number) {
+    const el = document.getElementById(`chat-message-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      highlightMessage(id)
+      return
+    }
+    pendingJumpRef.current = id
+    if (hasMore && !loadingOlder) {
+      void loadOlder()
+    } else if (!hasMore) {
+      pendingJumpRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    if (replyTo == null) {
+      return
+    }
+    const latest = messages.find((item) => item.id === replyTo.id)
+    if (!latest || latest.deleted_at) {
+      setReplyTo(null)
+    }
+  }, [messages, replyTo])
+
+  useEffect(() => {
+    const targetId = pendingJumpRef.current
+    if (targetId == null || loadingOlder) {
+      return
+    }
+    const el = document.getElementById(`chat-message-${targetId}`)
+    if (el) {
+      pendingJumpRef.current = null
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      highlightMessage(targetId)
+      return
+    }
+    if (hasMore) {
+      void loadOlder()
+    } else {
+      pendingJumpRef.current = null
+    }
+  }, [messages, loadingOlder, hasMore])
 
   function handleFileDragOver(event: DragEvent<HTMLElement>) {
     if (!isFileDrag(event)) {
@@ -295,6 +401,9 @@ export function ChatTab({ projectId }: ChatTabProps) {
               projectId={projectId}
               message={message}
               mine={message.user_id === user?.id}
+              highlighted={highlightedId === message.id}
+              onReply={() => startReply(message)}
+              onJump={jumpToMessage}
               onEdit={(next) => void handleEdit(message, next)}
               onDelete={() => void handleDelete(message)}
             />
@@ -304,20 +413,47 @@ export function ChatTab({ projectId }: ChatTabProps) {
           className="flex gap-[0.55rem] border-t border-border bg-[rgba(12,18,36,0.85)] p-[0.9rem] max-[800px]:grid max-[800px]:grid-cols-1"
           onSubmit={(event) => void handleSend(event)}
         >
-          <Textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Escreva uma mensagem"
-            aria-label="Mensagem"
-            rows={1}
-            className="min-h-10 max-h-32 resize-none py-2"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                event.currentTarget.form?.requestSubmit()
-              }
-            }}
-          />
+          <div className="min-w-0 flex-1">
+            {replyTo && (
+              <div className="mb-2 flex items-start gap-2 rounded-[10px] border border-border bg-white/4 px-3 py-2">
+                <span className="mt-0.5 w-[3px] shrink-0 self-stretch rounded-full bg-[rgba(110,168,255,0.8)]" />
+                <div className="min-w-0 flex-1">
+                  <strong className="block truncate text-[0.8rem]">{replyTo.author_name}</strong>
+                  <p className="truncate text-[0.8rem] text-muted-foreground">
+                    {replySnippet(previewFromMessage(replyTo))}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  title="Cancelar resposta"
+                  aria-label="Cancelar resposta"
+                  onClick={() => setReplyTo(null)}
+                >
+                  <X />
+                </Button>
+              </div>
+            )}
+            <Textarea
+              ref={composerRef}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder={replyTo ? `Responder a ${replyTo.author_name}` : 'Escreva uma mensagem'}
+              aria-label="Mensagem"
+              rows={1}
+              className="min-h-10 max-h-32 resize-none py-2"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  event.currentTarget.form?.requestSubmit()
+                }
+                if (event.key === 'Escape' && replyTo) {
+                  setReplyTo(null)
+                }
+              }}
+            />
+          </div>
           <input
             ref={fileRef}
             type="file"
@@ -363,12 +499,18 @@ function ChatBubble({
   projectId,
   message,
   mine,
+  highlighted,
+  onReply,
+  onJump,
   onEdit,
   onDelete,
 }: {
   projectId: string
   message: Message
   mine: boolean
+  highlighted: boolean
+  onReply: () => void
+  onJump: (messageId: number) => void
   onEdit: (content: string) => void
   onDelete: () => void
 }) {
@@ -395,9 +537,11 @@ function ChatBubble({
 
   return (
     <article
+      id={`chat-message-${message.id}`}
       className={cn(
         'flex max-w-[74%] items-end gap-[0.6rem] max-[800px]:max-w-[94%]',
         mine && 'flex-row-reverse self-end',
+        highlighted && 'rounded-[16px] ring-2 ring-[rgba(110,168,255,0.55)]',
       )}
     >
       <UserAvatar label={message.author_name.slice(0, 1).toUpperCase()} size="sm" />
@@ -417,6 +561,18 @@ function ChatBubble({
               {formatDateTime(message.created_at)}
               {!deleted && isEdited(message.created_at, message.updated_at) ? ' · editada' : ''}
             </time>
+            {!deleted && !editing && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                title="Responder"
+                aria-label="Responder"
+                onClick={onReply}
+              >
+                <Reply />
+              </Button>
+            )}
             {mine && !editing && !deleted && (
               <>
                 <Button
@@ -443,6 +599,28 @@ function ChatBubble({
             )}
           </span>
         </header>
+        {!deleted && message.reply_to && (
+          <button
+            type="button"
+            className="mb-2 w-full rounded-[8px] bg-black/20 px-2.5 py-1.5 text-left"
+            onClick={() => onJump(message.reply_to!.id)}
+          >
+            <span className="flex gap-2">
+              <span className="w-[3px] shrink-0 self-stretch rounded-full bg-[rgba(110,168,255,0.8)]" />
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-[0.75rem]">{message.reply_to.author_name}</strong>
+                <span
+                  className={cn(
+                    'block truncate text-[0.78rem] text-muted-foreground',
+                    message.reply_to.deleted && 'italic',
+                  )}
+                >
+                  {replySnippet(message.reply_to)}
+                </span>
+              </span>
+            </span>
+          </button>
+        )}
         {deleted ? (
           <p className="italic text-muted-foreground">Mensagem excluída</p>
         ) : editing ? (

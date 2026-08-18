@@ -11,7 +11,7 @@ from app.models.message import Message
 from app.models.user import User
 from app.realtime.manager import connection_manager
 from app.repositories.message_repository import MessageRepository
-from app.schemas.message import AttachmentPublic, MessageList, MessagePublic
+from app.schemas.message import AttachmentPublic, MessageList, MessagePublic, ReplyPreview
 from app.services.project_service import ProjectService
 from app.storage import storage
 
@@ -36,13 +36,24 @@ class MessageService:
             total=total,
         )
 
-    def create_text_message(self, project_id: int, content: str, actor: User) -> MessagePublic:
+    def create_text_message(
+        self,
+        project_id: int,
+        content: str,
+        actor: User,
+        reply_to_id: int | None = None,
+    ) -> MessagePublic:
         project = self.project_service.assert_can_access(project_id, actor)
         text = content.strip()
         if not text:
             raise AppError("A mensagem não pode estar vazia.")
 
-        message = Message(project_id=project_id, user_id=actor.id, content=text)
+        message = Message(
+            project_id=project_id,
+            user_id=actor.id,
+            content=text,
+            reply_to_id=self._resolve_reply_to_id(project_id, reply_to_id),
+        )
         self.messages.add(message)
         self.db.commit()
         stored = self.messages.get_by_id(message.id)
@@ -52,14 +63,24 @@ class MessageService:
         return public
 
     def create_message_with_attachment(
-        self, project_id: int, actor: User, file: UploadFile, content: str | None
+        self,
+        project_id: int,
+        actor: User,
+        file: UploadFile,
+        content: str | None,
+        reply_to_id: int | None = None,
     ) -> MessagePublic:
         project = self.project_service.assert_can_access(project_id, actor)
         data = file.file.read()
         mime_type, original_name = validate_upload(file, data)
         text = (content or "").strip() or None
 
-        message = Message(project_id=project_id, user_id=actor.id, content=text)
+        message = Message(
+            project_id=project_id,
+            user_id=actor.id,
+            content=text,
+            reply_to_id=self._resolve_reply_to_id(project_id, reply_to_id),
+        )
         self.messages.add(message)
 
         storage_key = f"{project_id}/{uuid4()}_{original_name}"
@@ -156,6 +177,28 @@ class MessageService:
             raise AppError("Esta mensagem já foi excluída.")
         return message
 
+    def _resolve_reply_to_id(self, project_id: int, reply_to_id: int | None) -> int | None:
+        if reply_to_id is None:
+            return None
+        original = self.messages.get_by_id(reply_to_id)
+        if original is None or original.project_id != project_id:
+            raise NotFoundError("Mensagem original não encontrada.")
+        if original.deleted_at is not None:
+            raise AppError("Não é possível responder a uma mensagem excluída.")
+        return original.id
+
+    def _to_reply_preview(self, original: Message | None) -> ReplyPreview | None:
+        if original is None:
+            return None
+        deleted = original.deleted_at is not None
+        return ReplyPreview(
+            id=original.id,
+            author_name=original.author.name if original.author else "",
+            content=None if deleted else original.content,
+            deleted=deleted,
+            has_attachment=not deleted and len(original.attachments) > 0,
+        )
+
     def _to_public(self, message: Message) -> MessagePublic:
         deleted = message.deleted_at is not None
         return MessagePublic(
@@ -179,4 +222,5 @@ class MessageService:
             created_at=message.created_at,
             updated_at=message.updated_at,
             deleted_at=message.deleted_at,
+            reply_to=None if deleted else self._to_reply_preview(message.reply_to),
         )

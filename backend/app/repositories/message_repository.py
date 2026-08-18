@@ -7,6 +7,13 @@ from app.models.attachment import MessageAttachment
 from app.models.message import Message
 from app.models.project import Project
 
+_MESSAGE_LOAD = (
+    selectinload(Message.attachments),
+    selectinload(Message.author),
+    selectinload(Message.reply_to).selectinload(Message.author),
+    selectinload(Message.reply_to).selectinload(Message.attachments),
+)
+
 
 class MessageRepository:
     def __init__(self, db: Session) -> None:
@@ -15,7 +22,7 @@ class MessageRepository:
     def get_by_id(self, message_id: int) -> Message | None:
         stmt = (
             select(Message)
-            .options(selectinload(Message.attachments), selectinload(Message.author))
+            .options(*_MESSAGE_LOAD)
             .where(Message.id == message_id)
         )
         return self.db.execute(stmt).scalar_one_or_none()
@@ -27,7 +34,7 @@ class MessageRepository:
 
         stmt = (
             select(Message)
-            .options(selectinload(Message.attachments), selectinload(Message.author))
+            .options(*_MESSAGE_LOAD)
             .where(Message.project_id == project_id)
             .order_by(Message.created_at.desc())
             .limit(limit)

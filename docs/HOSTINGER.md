@@ -185,7 +185,7 @@ docker compose up -d --build
 docker compose exec workhub-api alembic upgrade head
 ```
 
-O schema atual é a revision `001_initial`. Depois de `git pull`, se o banco já existia, recrie o volume (passo de reset) e rode `alembic upgrade head`.
+O schema atual é a revision `002_message_reply_to`. Depois de `git pull`, rode `alembic upgrade head` — essa migration só adiciona a coluna de resposta citada e **não** apaga dados.
 
 ### Reset completo (perigoso)
 

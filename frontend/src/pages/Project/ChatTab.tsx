@@ -51,7 +51,8 @@ function replySnippet(preview: ReplyPreview): string {
   }
   const text = preview.content?.trim()
   if (text) {
-    return text
+    const readable = text.replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim()
+    return readable || 'Link'
   }
   if (preview.has_attachment) {
     return 'Anexo'
@@ -410,16 +411,16 @@ export function ChatTab({ projectId }: ChatTabProps) {
           ))}
         </div>
         <form
-          className="flex gap-[0.55rem] border-t border-border bg-[rgba(12,18,36,0.85)] p-[0.9rem] max-[800px]:grid max-[800px]:grid-cols-1"
+          className="flex min-w-0 gap-[0.55rem] border-t border-border bg-[rgba(12,18,36,0.85)] p-[0.9rem] max-[800px]:grid max-[800px]:grid-cols-1"
           onSubmit={(event) => void handleSend(event)}
         >
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">
             {replyTo && (
-              <div className="mb-2 flex items-start gap-2 rounded-[10px] border border-border bg-white/4 px-3 py-2">
+              <div className="mb-2 flex min-w-0 items-start gap-2 overflow-hidden rounded-[10px] border border-border bg-white/4 px-3 py-2">
                 <span className="mt-0.5 w-[3px] shrink-0 self-stretch rounded-full bg-[rgba(110,168,255,0.8)]" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <strong className="block truncate text-[0.8rem]">{replyTo.author_name}</strong>
-                  <p className="truncate text-[0.8rem] text-muted-foreground">
+                  <p className="line-clamp-2 wrap-anywhere text-[0.8rem] text-muted-foreground">
                     {replySnippet(previewFromMessage(replyTo))}
                   </p>
                 </div>
@@ -539,7 +540,7 @@ function ChatBubble({
     <article
       id={`chat-message-${message.id}`}
       className={cn(
-        'flex max-w-[74%] items-end gap-[0.6rem] max-[800px]:max-w-[94%]',
+        'flex w-fit min-w-0 max-w-[min(32rem,62%)] items-end gap-[0.6rem] max-[800px]:max-w-[85%]',
         mine && 'flex-row-reverse self-end',
         highlighted && 'rounded-[16px] ring-2 ring-[rgba(110,168,255,0.55)]',
       )}
@@ -547,15 +548,15 @@ function ChatBubble({
       <UserAvatar label={message.author_name.slice(0, 1).toUpperCase()} size="sm" />
       <div
         className={cn(
-          'min-w-0 rounded-[14px] border border-border bg-white/4 px-[0.85rem] py-[0.7rem]',
+          'min-w-0 max-w-full overflow-hidden rounded-[14px] border border-border bg-white/4 px-[0.85rem] py-[0.7rem]',
           mine
             ? 'rounded-br-[6px] border-[rgba(110,168,255,0.28)] bg-[rgba(110,168,255,0.14)]'
             : 'rounded-bl-[6px]',
           deleted && 'opacity-70',
         )}
       >
-        <header className="mb-[0.2rem] flex items-center justify-between gap-2">
-          <strong className="truncate">{message.author_name}</strong>
+        <header className="mb-[0.2rem] flex min-w-0 items-center justify-between gap-2">
+          <strong className="min-w-0 truncate">{message.author_name}</strong>
           <span className="flex shrink-0 items-center gap-0.5">
             <time className="whitespace-nowrap text-[0.72rem] text-muted-foreground">
               {formatDateTime(message.created_at)}
@@ -602,16 +603,16 @@ function ChatBubble({
         {!deleted && message.reply_to && (
           <button
             type="button"
-            className="mb-2 w-full rounded-[8px] bg-black/20 px-2.5 py-1.5 text-left"
+            className="mb-2 w-full min-w-0 overflow-hidden rounded-[8px] bg-black/20 px-2.5 py-1.5 text-left"
             onClick={() => onJump(message.reply_to!.id)}
           >
-            <span className="flex gap-2">
+            <span className="flex min-w-0 gap-2">
               <span className="w-[3px] shrink-0 self-stretch rounded-full bg-[rgba(110,168,255,0.8)]" />
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 overflow-hidden">
                 <strong className="block truncate text-[0.75rem]">{message.reply_to.author_name}</strong>
                 <span
                   className={cn(
-                    'block truncate text-[0.78rem] text-muted-foreground',
+                    'line-clamp-2 wrap-anywhere text-[0.78rem] text-muted-foreground',
                     message.reply_to.deleted && 'italic',
                   )}
                 >
@@ -660,7 +661,9 @@ function ChatBubble({
             </div>
           </div>
         ) : (
-          message.content && <p className="whitespace-pre-wrap">{message.content}</p>
+          message.content && (
+            <p className="whitespace-pre-wrap wrap-anywhere">{message.content}</p>
+          )
         )}
         {!deleted &&
           message.attachments.map((attachment) => (

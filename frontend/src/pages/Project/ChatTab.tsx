@@ -1,5 +1,5 @@
 import { Paperclip, Pencil, Reply, Send, Trash2, X } from 'lucide-react'
-import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { type DragEvent, type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { deleteMessage, listMessages, sendMessage, updateMessage, uploadAttachment } from '../../api/messages'
 import { attachmentUrl } from '../../api/client'
@@ -58,6 +58,56 @@ function replySnippet(preview: ReplyPreview): string {
     return 'Anexo'
   }
   return 'Mensagem'
+}
+
+function MessageText({ text }: { text: string }) {
+  const nodes: ReactNode[] = []
+  const pattern = /https?:\/\/[^\s<>"'`]+/gi
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index))
+    }
+    let href = match[0]
+    let trailing = ''
+    while (/[.,;:!?)]$/.test(href)) {
+      const last = href.slice(-1)
+      if (last === ')' && href.includes('(')) {
+        break
+      }
+      trailing = last + trailing
+      href = href.slice(0, -1)
+    }
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+      nodes.push(
+        <a
+          key={`link-${key}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="wrap-anywhere text-[rgba(110,168,255,0.95)] underline underline-offset-2"
+        >
+          {href}
+        </a>,
+      )
+      key += 1
+    } else {
+      nodes.push(match[0])
+    }
+    if (trailing) {
+      nodes.push(trailing)
+    }
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex))
+  }
+
+  return <p className="whitespace-pre-wrap wrap-anywhere">{nodes}</p>
 }
 
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
@@ -661,9 +711,7 @@ function ChatBubble({
             </div>
           </div>
         ) : (
-          message.content && (
-            <p className="whitespace-pre-wrap wrap-anywhere">{message.content}</p>
-          )
+          message.content && <MessageText text={message.content} />
         )}
         {!deleted &&
           message.attachments.map((attachment) => (

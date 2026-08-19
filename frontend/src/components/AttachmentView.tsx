@@ -56,11 +56,21 @@ export function AttachmentView({
 
   if (!compact && isImage) {
     return objectUrl ? (
-      <img
-        className={cn('my-[0.45rem] block max-w-[260px] rounded-[10px]', imageClassName)}
-        src={objectUrl}
-        alt={name}
-      />
+      <>
+        <button
+          type="button"
+          className={cn(
+            'my-[0.45rem] block max-w-[260px] cursor-zoom-in rounded-[10px] p-0',
+            imageClassName,
+          )}
+          title="Ampliar imagem"
+          aria-label={`Ampliar ${name}`}
+          onClick={() => setPreview(true)}
+        >
+          <img className="block max-w-[260px] rounded-[10px]" src={objectUrl} alt={name} />
+        </button>
+        <ImagePreviewDialog name={name} objectUrl={objectUrl} open={preview} onOpenChange={setPreview} />
+      </>
     ) : (
       <p className="text-muted-foreground">{name}</p>
     )
@@ -77,22 +87,9 @@ export function AttachmentView({
         >
           {name}
         </button>
-        <Dialog open={preview} onOpenChange={setPreview}>
-          <DialogContent
-            className="max-w-[min(92vw,900px)] p-3 sm:max-w-[min(92vw,900px)]"
-            onClick={() => setPreview(false)}
-          >
-            <DialogTitle className="sr-only">{name}</DialogTitle>
-            <DialogDescription className="sr-only">Pré-visualização da imagem</DialogDescription>
-            {objectUrl && (
-              <img
-                src={objectUrl}
-                alt={name}
-                className="max-h-[80vh] w-full rounded-[10px] object-contain"
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+        {objectUrl && (
+          <ImagePreviewDialog name={name} objectUrl={objectUrl} open={preview} onOpenChange={setPreview} />
+        )}
       </>
     )
   }
@@ -109,5 +106,34 @@ export function AttachmentView({
     <span className={cn('text-muted-foreground', compact && 'min-w-0 truncate text-[0.9rem]')}>
       {name}
     </span>
+  )
+}
+
+function ImagePreviewDialog({
+  name,
+  objectUrl,
+  open,
+  onOpenChange,
+}: {
+  name: string
+  objectUrl: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-[min(92vw,900px)] p-3 sm:max-w-[min(92vw,900px)]"
+        onClick={() => onOpenChange(false)}
+      >
+        <DialogTitle className="sr-only">{name}</DialogTitle>
+        <DialogDescription className="sr-only">Pré-visualização da imagem</DialogDescription>
+        <img
+          src={objectUrl}
+          alt={name}
+          className="max-h-[80vh] w-full rounded-[10px] object-contain"
+        />
+      </DialogContent>
+    </Dialog>
   )
 }

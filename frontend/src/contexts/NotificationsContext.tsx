@@ -166,6 +166,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [unreadByProject],
   )
 
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread}) WorkHub` : 'WorkHub'
+    return () => {
+      document.title = 'WorkHub'
+    }
+  }, [totalUnread])
+
   const value = useMemo(
     () => ({ unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects }),
     [unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects],

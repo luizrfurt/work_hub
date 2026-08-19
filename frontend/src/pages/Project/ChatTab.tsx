@@ -18,6 +18,8 @@ import type { Message, ReplyPreview } from '../../types'
 import { formatDateTime, getErrorMessage, isEdited } from '../../utils/format'
 import { checkUploadQuota } from '../../utils/quota'
 import {
+  asChatImage,
+  filesFromClipboard,
   filesFromDataTransfer,
   isFileDrag,
   isOverUploadLimit,
@@ -412,6 +414,28 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setFileOver(false)
     void handleFiles(files)
   }
+
+  const handleFilesRef = useRef(handleFiles)
+  handleFilesRef.current = handleFiles
+
+  useEffect(() => {
+    function onPaste(event: globalThis.ClipboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]') && target !== composerRef.current) {
+        return
+      }
+      const images = filesFromClipboard(event.clipboardData)
+        .map(asChatImage)
+        .filter((file): file is File => file != null)
+      if (images.length === 0) {
+        return
+      }
+      event.preventDefault()
+      void handleFilesRef.current(images)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[0.6rem]">

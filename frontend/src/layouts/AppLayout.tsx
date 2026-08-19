@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 export function AppLayout() {
   const { user, logout } = useAuth()
-  const { totalUnread } = useNotifications()
+  const { unreadProjectCount } = useNotifications()
   const location = useLocation()
   const [changingPassword, setChangingPassword] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -79,9 +79,9 @@ export function AppLayout() {
             }
           >
             <span>Projetos</span>
-            {totalUnread > 0 && (
+            {unreadProjectCount > 0 && (
               <Badge className="h-[1.15rem] min-w-[1.15rem] rounded-full bg-destructive px-[0.35rem] text-[0.68rem] font-extrabold text-white">
-                {totalUnread > 9 ? '9+' : totalUnread}
+                {unreadProjectCount > 9 ? '9+' : unreadProjectCount}
               </Badge>
             )}
           </NavLink>

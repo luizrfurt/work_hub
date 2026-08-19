@@ -23,7 +23,7 @@ import { useAuth } from './AuthContext'
 
 interface NotificationsValue {
   unreadByProject: Record<number, number>
-  totalUnread: number
+  unreadProjectCount: number
   unreadFor: (projectId: number | string) => number
   setActiveView: (projectId: number | string | null, tab: string | null) => void
   markRead: (projectId: number) => void
@@ -161,21 +161,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [unreadByProject],
   )
 
-  const totalUnread = useMemo(
-    () => Object.values(unreadByProject).reduce((sum, count) => sum + count, 0),
+  const unreadProjectCount = useMemo(
+    () => Object.values(unreadByProject).filter((count) => count > 0).length,
     [unreadByProject],
   )
 
   useEffect(() => {
-    document.title = totalUnread > 0 ? `(${totalUnread}) WorkHub` : 'WorkHub'
+    document.title = unreadProjectCount > 0 ? `(${unreadProjectCount}) WorkHub` : 'WorkHub'
     return () => {
       document.title = 'WorkHub'
     }
-  }, [totalUnread])
+  }, [unreadProjectCount])
 
   const value = useMemo(
-    () => ({ unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects }),
-    [unreadByProject, totalUnread, unreadFor, setActiveView, markRead, syncFromProjects],
+    () => ({ unreadByProject, unreadProjectCount, unreadFor, setActiveView, markRead, syncFromProjects }),
+    [unreadByProject, unreadProjectCount, unreadFor, setActiveView, markRead, syncFromProjects],
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>

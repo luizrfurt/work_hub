@@ -154,6 +154,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
   const [fileOver, setFileOver] = useState(false)
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [highlightedId, setHighlightedId] = useState<number | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const historyRef = useRef<HTMLDivElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
@@ -174,6 +175,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
     setTotal(0)
     setReplyTo(null)
     setHighlightedId(null)
+    setPendingFiles([])
     setLoading(true)
     listMessages(projectId, PAGE_SIZE, 0)
       .then((data) => {
@@ -260,6 +262,10 @@ export function ChatTab({ projectId }: ChatTabProps) {
   async function handleSend(event: FormEvent) {
     event.preventDefault()
     const text = content.trim()
+    if (pendingFiles.length > 0) {
+      await uploadFiles(pendingFiles)
+      return
+    }
     if (!text) {
       return
     }
@@ -281,7 +287,28 @@ export function ChatTab({ projectId }: ChatTabProps) {
     }
   }
 
-  async function handleFiles(files: File[]) {
+  function queueFiles(files: File[]) {
+    const accepted = files.filter((file) => !isOverUploadLimit(file.size))
+    const rejected = files.length - accepted.length
+    if (accepted.length === 0) {
+      setError('Arquivo excede o limite de 5 MB.')
+      return
+    }
+    const quota = checkUploadQuota(
+      usage,
+      pendingFiles.reduce((sum, file) => sum + file.size, 0) +
+        accepted.reduce((sum, file) => sum + file.size, 0),
+    )
+    if (quota.blocked) {
+      setError(quota.blocked)
+      return
+    }
+    setError(quota.warning ?? (rejected > 0 ? 'Arquivos acima de 5 MB foram ignorados.' : ''))
+    setPendingFiles((current) => [...current, ...accepted])
+    window.setTimeout(() => composerRef.current?.focus(), 0)
+  }
+
+  async function uploadFiles(files: File[]) {
     const accepted = files.filter((file) => !isOverUploadLimit(file.size))
     const rejected = files.length - accepted.length
     if (accepted.length === 0) {
@@ -309,6 +336,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
       }
       setContent('')
       setReplyTo(null)
+      setPendingFiles([])
       markRead(Number(projectId))
       await refreshStorage()
     } catch (err) {
@@ -412,11 +440,11 @@ export function ChatTab({ projectId }: ChatTabProps) {
     }
     event.preventDefault()
     setFileOver(false)
-    void handleFiles(files)
+    queueFiles(files)
   }
 
-  const handleFilesRef = useRef(handleFiles)
-  handleFilesRef.current = handleFiles
+  const queueFilesRef = useRef(queueFiles)
+  queueFilesRef.current = queueFiles
 
   useEffect(() => {
     function onPaste(event: globalThis.ClipboardEvent) {
@@ -431,7 +459,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
         return
       }
       event.preventDefault()
-      void handleFilesRef.current(images)
+      queueFilesRef.current(images)
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
@@ -510,11 +538,25 @@ export function ChatTab({ projectId }: ChatTabProps) {
                 </Button>
               </div>
             )}
+            {pendingFiles.length > 0 && (
+              <PendingFileDrafts
+                files={pendingFiles}
+                onRemove={(index) => {
+                  setPendingFiles((current) => current.filter((_, item) => item !== index))
+                }}
+              />
+            )}
             <Textarea
               ref={composerRef}
               value={content}
               onChange={(event) => setContent(event.target.value)}
-              placeholder={replyTo ? `Responder a ${replyTo.author_name}` : 'Escreva uma mensagem'}
+              placeholder={
+                pendingFiles.length > 0
+                  ? 'Adicione uma legenda'
+                  : replyTo
+                    ? `Responder a ${replyTo.author_name}`
+                    : 'Escreva uma mensagem'
+              }
               aria-label="Mensagem"
               rows={1}
               className="min-h-10 max-h-32 resize-none py-2"
@@ -523,8 +565,14 @@ export function ChatTab({ projectId }: ChatTabProps) {
                   event.preventDefault()
                   event.currentTarget.form?.requestSubmit()
                 }
-                if (event.key === 'Escape' && replyTo) {
-                  setReplyTo(null)
+                if (event.key === 'Escape') {
+                  if (replyTo) {
+                    setReplyTo(null)
+                    return
+                  }
+                  if (pendingFiles.length > 0) {
+                    setPendingFiles([])
+                  }
                 }
               }}
             />
@@ -538,7 +586,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
             onChange={(event) => {
               const files = Array.from(event.target.files ?? [])
               if (files.length > 0) {
-                void handleFiles(files)
+                queueFiles(files)
                 event.target.value = ''
               }
             }}
@@ -558,7 +606,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
             type="submit"
             size="icon"
             className="size-10"
-            disabled={sending}
+            disabled={sending || (!content.trim() && pendingFiles.length === 0)}
             title="Enviar"
             aria-label="Enviar"
           >
@@ -566,6 +614,60 @@ export function ChatTab({ projectId }: ChatTabProps) {
           </Button>
         </form>
       </div>
+    </div>
+  )
+}
+
+function PendingFileDrafts({
+  files,
+  onRemove,
+}: {
+  files: File[]
+  onRemove: (index: number) => void
+}) {
+  const [previews, setPreviews] = useState<string[]>([])
+
+  useEffect(() => {
+    const urls = files.map((file) =>
+      file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+    )
+    setPreviews(urls)
+    return () => {
+      urls.forEach((url) => {
+        if (url) {
+          URL.revokeObjectURL(url)
+        }
+      })
+    }
+  }, [files])
+
+  return (
+    <div className="mb-2 flex min-w-0 gap-2 overflow-x-auto pb-0.5">
+      {files.map((file, index) => (
+        <div
+          key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+          className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-[10px] border border-border bg-black/30"
+        >
+          {previews[index] ? (
+            <img src={previews[index]} alt={file.name} className="size-full object-cover" />
+          ) : (
+            <p className="flex size-full items-center p-1 text-center text-[0.65rem] leading-tight text-muted-foreground">
+              {file.name}
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="absolute top-0.5 right-0.5 size-6 bg-black/70 text-white hover:bg-black/85"
+            title="Remover arquivo"
+            aria-label="Remover arquivo"
+            onClick={() => onRemove(index)}
+          >
+            <X />
+          </Button>
+        </div>
+      ))}
     </div>
   )
 }

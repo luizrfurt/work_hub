@@ -1,4 +1,4 @@
-import { Pencil, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -175,13 +175,26 @@ function ProjectWorkspace({
     >
       <div className="shrink-0">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-4 max-[800px]:flex-col max-[800px]:items-start">
-          <div>
+          <div className="min-w-0">
             <p className="mb-1 text-[0.72rem] font-bold tracking-[0.12em] text-primary uppercase">
               Projeto
             </p>
-            <h1 className="text-[1.75rem] font-bold tracking-[-0.02em]">
-              {project?.name ?? 'Carregando...'}
-            </h1>
+            <div className="flex min-w-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Voltar aos projetos"
+                aria-label="Voltar aos projetos"
+                onClick={() => navigate('/projects')}
+              >
+                <ArrowLeft />
+              </Button>
+              <h1 className="min-w-0 text-[1.75rem] font-bold tracking-[-0.02em]">
+                {project?.name ?? 'Carregando...'}
+              </h1>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isAdmin && project && (

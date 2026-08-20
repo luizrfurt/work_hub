@@ -21,7 +21,7 @@ O MVP inclui:
 ## Estrutura
 
 ```text
-work_hub/
+workhub/
 ├── backend/                 API FastAPI, migrations e testes
 ├── frontend/                Interface React
 ├── docker-compose.dev.yml   PostgreSQL local
@@ -44,7 +44,7 @@ Edite o `.env` e defina pelo menos:
 
 ```env
 APP_ENV=development
-DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
+DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/workhub
 JWT_SECRET_KEY=uma-chave-longa-e-secreta
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=30
@@ -77,14 +77,14 @@ VITE_WS_URL=ws://localhost:8000
 ## PostgreSQL no Docker (desenvolvimento)
 
 ```powershell
-cd C:\Dev\work_hub
+cd C:\Dev\workhub
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Isso sobe o Postgres 16 em `localhost:5432` (usuário/senha `workhub`, banco `work_hub`). Os dados ficam no volume Docker `workhub-dev_pgdata`.
+Isso sobe o Postgres 16 em `localhost:5432` (usuário/senha `workhub`, banco `workhub`). Os dados ficam no volume Docker `workhub-dev_pgdata`.
 
 ```env
-DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/work_hub
+DATABASE_URL=postgresql+psycopg://workhub:workhub@localhost:5432/workhub
 ```
 
 Para parar: `docker compose -f docker-compose.dev.yml down` (o volume permanece). Para apagar os dados: `docker compose -f docker-compose.dev.yml down -v`.
@@ -172,13 +172,13 @@ Se precisar das duas origens (localhost e IP), separe por vírgula.
 5. Suba os serviços escutando na rede:
 
 ```powershell
-cd C:\Dev\work_hub\backend
+cd C:\Dev\workhub\backend
 .\.venv\Scripts\activate
 uvicorn main:app --reload --host 0.0.0.0
 ```
 
 ```powershell
-cd C:\Dev\work_hub\frontend
+cd C:\Dev\workhub\frontend
 npm run dev -- --host
 ```
 
@@ -244,6 +244,6 @@ O colaborador vê os projetos dos quais participa e, nesses projetos, pode criar
 
 No desenvolvimento: só o Postgres vai no Docker (`docker-compose.dev.yml`). FastAPI e Vite continuam na máquina.
 
-No VPS: o stack completo (web + api + Postgres) segue o padrão do Clock. Guia: [docs/HOSTINGER.md](docs/HOSTINGER.md).
+No VPS: o stack completo (web + api + Postgres) segue o padrão do ClockUp. Guia: [docs/HOSTINGER.md](docs/HOSTINGER.md).
 
 Resumo em produção: `workhub.zioncor.com.br` → nginx do frontend; `/api` e `/ws` → FastAPI; Postgres só na rede Docker, sem porta pública.

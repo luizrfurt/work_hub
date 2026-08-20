@@ -1,6 +1,6 @@
 # Stack na mesma rede do Caddy Zioncor.
 # Uso no servidor:
-#   cd /opt/work_hub
+#   cd /opt/workhub
 #   docker compose --env-file backend/.env up -d --build
 #
 # Caddy (um único domínio):
@@ -18,13 +18,13 @@ services:
     environment:
       POSTGRES_USER: workhub
       POSTGRES_PASSWORD: workhub
-      POSTGRES_DB: work_hub
+      POSTGRES_DB: workhub
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workhub -d work_hub"]
+      test: ["CMD-SHELL", "pg_isready -U workhub -d workhub"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -40,7 +40,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg://workhub:workhub@workhub-db:5432/work_hub
+      DATABASE_URL: postgresql+psycopg://workhub:workhub@workhub-db:5432/workhub
       UPLOAD_DIRECTORY: /app/uploads
       FRONTEND_URL: https://workhub.zioncor.com.br
     expose:

@@ -53,7 +53,6 @@ export function LoginPage() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 autoComplete="username"
-                placeholder="seu.usuario"
                 required
               />
             </Field>
@@ -62,7 +61,6 @@ export function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
-                placeholder="••••••••"
                 required
               />
             </Field>

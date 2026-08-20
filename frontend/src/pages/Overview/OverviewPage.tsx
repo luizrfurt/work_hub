@@ -55,9 +55,6 @@ export function OverviewPage() {
     <section>
       <div className="mb-[1.2rem] flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-1 text-[0.72rem] font-bold tracking-[0.12em] text-primary uppercase">
-            Administração
-          </p>
           <h1 className="mb-1 text-[1.75rem] font-bold tracking-[-0.02em]">Dashboard</h1>
           <p className="text-muted-foreground">
             Visão geral dos projetos: tarefas ativas, concluídas e o que cada pessoa fez.

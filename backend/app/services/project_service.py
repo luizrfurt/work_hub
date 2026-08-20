@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -84,6 +86,9 @@ class ProjectService:
             else self.projects.list_for_user(actor.id)
         )
         last_times = self.messages.last_message_times()
+        unread_counts = self.messages.unread_counts_for_user(
+            actor.id, [project.id for project, _count in rows]
+        )
         return [
             ProjectPublic(
                 id=project.id,
@@ -92,6 +97,7 @@ class ProjectService:
                 created_by=project.created_by,
                 member_count=count,
                 last_message_at=last_times.get(project.id),
+                unread_count=unread_counts.get(project.id, 0),
                 created_at=project.created_at,
                 updated_at=project.updated_at,
             )
@@ -108,9 +114,31 @@ class ProjectService:
             created_by=project.created_by,
             member_count=len(members),
             last_message_at=self.messages.last_message_at(project.id),
+            unread_count=self.messages.unread_counts_for_user(actor.id, [project.id]).get(
+                project.id, 0
+            ),
             created_at=project.created_at,
             updated_at=project.updated_at,
         )
+
+    def mark_project_read(self, project_id: int, actor: User) -> None:
+        self._require_accessible_project(project_id, actor)
+        self.projects.upsert_read_state(project_id, actor.id, datetime.now(timezone.utc))
+        self.db.commit()
+
+    def sync_read_states(self, last_read: dict[str, datetime], actor: User) -> None:
+        for raw_id, read_at in last_read.items():
+            try:
+                project_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            try:
+                self._require_accessible_project(project_id, actor)
+            except (NotFoundError, ForbiddenError):
+                continue
+            aware = read_at if read_at.tzinfo else read_at.replace(tzinfo=timezone.utc)
+            self.projects.upsert_read_state(project_id, actor.id, aware)
+        self.db.commit()
 
     def list_notification_user_ids(self, project_id: int) -> list[int]:
         project = self.projects.get_by_id(project_id)

@@ -1,11 +1,12 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.attachment import MessageAttachment
 from app.models.message import Message
 from app.models.project import Project
+from app.models.project_read_state import ProjectReadState
 
 _MESSAGE_LOAD = (
     selectinload(Message.attachments),
@@ -67,6 +68,31 @@ class MessageRepository:
     def last_message_times(self) -> dict[int, datetime]:
         stmt = select(Message.project_id, func.max(Message.created_at)).group_by(Message.project_id)
         return {int(project_id): created_at for project_id, created_at in self.db.execute(stmt)}
+
+    def unread_counts_for_user(self, user_id: int, project_ids: list[int]) -> dict[int, int]:
+        if not project_ids:
+            return {}
+        stmt = (
+            select(Message.project_id, func.count(Message.id))
+            .outerjoin(
+                ProjectReadState,
+                and_(
+                    ProjectReadState.project_id == Message.project_id,
+                    ProjectReadState.user_id == user_id,
+                ),
+            )
+            .where(
+                Message.project_id.in_(project_ids),
+                Message.user_id != user_id,
+                Message.deleted_at.is_(None),
+                or_(
+                    ProjectReadState.last_read_at.is_(None),
+                    Message.created_at > ProjectReadState.last_read_at,
+                ),
+            )
+            .group_by(Message.project_id)
+        )
+        return {int(project_id): int(count) for project_id, count in self.db.execute(stmt)}
 
     def sum_attachment_usage_for_organization(self, organization_id: int) -> tuple[int, int]:
         stmt = (

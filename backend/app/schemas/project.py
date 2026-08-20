@@ -21,12 +21,17 @@ class ProjectPublic(BaseModel):
     created_by: int
     member_count: int = 0
     last_message_at: datetime | None = None
+    unread_count: int = 0
     created_at: datetime
     updated_at: datetime
 
 
 class ProjectMemberAdd(BaseModel):
     user_id: int
+
+
+class ProjectReadStatesSync(BaseModel):
+    last_read: dict[str, datetime]
 
 
 class ProjectMemberPublic(BaseModel):

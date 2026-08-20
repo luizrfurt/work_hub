@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 
+import { listProjects, markProjectRead, syncReadStates } from '../api/projects'
 import { useNotificationSocket } from '../hooks/useNotificationSocket'
 import type { Project } from '../types'
 import {
@@ -40,19 +41,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const activeProjectRef = useRef<number | null>(null)
   const activeTabRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    if (!user) {
-      lastReadRef.current = {}
-      unreadRef.current = {}
-      setUnreadByProject({})
-      return
-    }
-    lastReadRef.current = loadLastRead(user.id)
-    const stored = loadUnreadCounts(user.id)
-    unreadRef.current = stored
-    setUnreadByProject(stored)
-  }, [user?.id])
-
   const persistUnread = useCallback(
     (next: Record<number, number>) => {
       unreadRef.current = next
@@ -64,6 +52,45 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [user],
   )
 
+  useEffect(() => {
+    if (!user) {
+      lastReadRef.current = {}
+      unreadRef.current = {}
+      setUnreadByProject({})
+      return
+    }
+    lastReadRef.current = loadLastRead(user.id)
+    const stored = loadUnreadCounts(user.id)
+    unreadRef.current = stored
+    setUnreadByProject(stored)
+
+    let cancelled = false
+    const hydrate = async () => {
+      try {
+        if (Object.keys(lastReadRef.current).length > 0) {
+          await syncReadStates(lastReadRef.current)
+        }
+        const projects = await listProjects()
+        if (cancelled) {
+          return
+        }
+        const next: Record<number, number> = {}
+        for (const project of projects) {
+          if (project.unread_count > 0) {
+            next[project.id] = project.unread_count
+          }
+        }
+        persistUnread(next)
+      } catch {
+        // keep local cache if the server is unavailable
+      }
+    }
+    void hydrate()
+    return () => {
+      cancelled = true
+    }
+  }, [persistUnread, user?.id])
+
   const markRead = useCallback(
     (projectId: number) => {
       lastReadRef.current = {
@@ -72,6 +99,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       }
       if (user) {
         saveLastRead(user.id, lastReadRef.current)
+        void markProjectRead(projectId).catch(() => undefined)
       }
       if (!unreadRef.current[projectId]) {
         return
@@ -96,20 +124,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   )
 
   const syncFromProjects = useCallback((projects: Project[]) => {
-    const next = { ...unreadRef.current }
-    let changed = false
+    const next: Record<number, number> = {}
     for (const project of projects) {
-      const lastMessage = project.last_message_at ? Date.parse(project.last_message_at) : NaN
-      const readAt = lastReadRef.current[project.id]
-      const readTime = readAt ? Date.parse(readAt) : NaN
-      if (Number.isFinite(lastMessage) && Number.isFinite(readTime) && lastMessage <= readTime && next[project.id]) {
-        delete next[project.id]
-        changed = true
+      if (project.unread_count > 0) {
+        next[project.id] = project.unread_count
       }
     }
-    if (changed) {
-      persistUnread(next)
-    }
+    persistUnread(next)
   }, [persistUnread])
 
   useEffect(() => {

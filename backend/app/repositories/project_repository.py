@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.project import Project
 from app.models.project_member import ProjectMember
+from app.models.project_read_state import ProjectReadState
 from app.models.user import User
 
 
@@ -94,3 +97,33 @@ class ProjectRepository:
     def delete(self, project: Project) -> None:
         self.db.delete(project)
         self.db.flush()
+
+    def get_read_state(self, project_id: int, user_id: int) -> ProjectReadState | None:
+        stmt = select(ProjectReadState).where(
+            ProjectReadState.project_id == project_id,
+            ProjectReadState.user_id == user_id,
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def upsert_read_state(
+        self, project_id: int, user_id: int, last_read_at: datetime
+    ) -> ProjectReadState:
+        if last_read_at.tzinfo is None:
+            last_read_at = last_read_at.replace(tzinfo=timezone.utc)
+        state = self.get_read_state(project_id, user_id)
+        if state is None:
+            state = ProjectReadState(
+                project_id=project_id,
+                user_id=user_id,
+                last_read_at=last_read_at,
+            )
+            self.db.add(state)
+            self.db.flush()
+            return state
+        current = state.last_read_at
+        if current is not None and current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        if current is None or last_read_at > current:
+            state.last_read_at = last_read_at
+            self.db.flush()
+        return state

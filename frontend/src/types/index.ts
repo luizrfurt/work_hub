@@ -26,6 +26,7 @@ export interface Project {
   created_by: number
   member_count: number
   last_message_at: string | null
+  unread_count: number
   created_at: string
   updated_at: string
 }

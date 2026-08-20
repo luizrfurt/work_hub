@@ -6,6 +6,21 @@ export async function listProjects(): Promise<Project[]> {
   return data
 }
 
+export async function syncReadStates(lastRead: Record<number, string>): Promise<void> {
+  const payload: Record<string, string> = {}
+  for (const [projectId, readAt] of Object.entries(lastRead)) {
+    payload[String(projectId)] = readAt
+  }
+  if (Object.keys(payload).length === 0) {
+    return
+  }
+  await api.put('/projects/read-states', { last_read: payload })
+}
+
+export async function markProjectRead(projectId: number | string): Promise<void> {
+  await api.post(`/projects/${projectId}/read`)
+}
+
 export async function getOverview(): Promise<Overview> {
   const { data } = await api.get<Overview>('/projects/overview')
   return data

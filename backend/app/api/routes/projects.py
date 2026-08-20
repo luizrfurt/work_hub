@@ -10,6 +10,7 @@ from app.schemas.project import (
     ProjectMemberAdd,
     ProjectMemberPublic,
     ProjectPublic,
+    ProjectReadStatesSync,
     ProjectUpdate,
     StorageUsagePublic,
 )
@@ -61,6 +62,16 @@ def get_storage_usage(
     return ProjectService(db).get_storage_usage(current_user)
 
 
+@router.put("/read-states", status_code=204)
+def sync_read_states(
+    payload: ProjectReadStatesSync,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    ProjectService(db).sync_read_states(payload.last_read, current_user)
+    return Response(status_code=204)
+
+
 @router.get("/{project_id}", response_model=ProjectPublic)
 def get_project(
     project_id: int,
@@ -68,6 +79,16 @@ def get_project(
     current_user: User = Depends(get_current_user),
 ) -> ProjectPublic:
     return ProjectService(db).get_project(project_id, current_user)
+
+
+@router.post("/{project_id}/read", status_code=204)
+def mark_project_read(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    ProjectService(db).mark_project_read(project_id, current_user)
+    return Response(status_code=204)
 
 
 @router.patch("/{project_id}", response_model=ProjectPublic)

@@ -11,6 +11,7 @@ from app.models import (  # noqa: F401
     Organization,
     Project,
     ProjectMember,
+    ProjectReadState,
     RefreshToken,
     Task,
     TaskAttachment,

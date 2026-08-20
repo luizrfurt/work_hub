@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 
+import { BrandLogo } from '../components/BrandLogo'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuth } from '../contexts/AuthContext'
@@ -44,11 +45,14 @@ export function AppLayout() {
         className="fixed top-0 left-0 z-40 flex h-svh w-60 flex-col gap-2 border-r border-sidebar-border bg-sidebar p-5 px-3.5 backdrop-blur-[10px] max-md:-translate-x-[105%] max-md:transition-transform max-md:duration-[180ms] max-md:ease-in group-data-[sidebar-open=true]/shell:max-md:translate-x-0"
         aria-label="Navegação principal"
       >
-        <Link to={homePath(user?.role)} className="block text-inherit">
-          <h1 className="mb-1 text-[22px] font-bold tracking-[-0.02em]">WorkHub</h1>
-          <p className="text-xs leading-[1.35] text-muted-foreground">
-            Comunicação e tarefas da equipe
-          </p>
+        <Link to={homePath(user?.role)} className="flex items-start gap-2.5 text-inherit">
+          <BrandLogo size={40} className="mt-0.5" />
+          <span className="min-w-0">
+            <h1 className="mb-1 text-[22px] font-bold tracking-[-0.02em]">WorkHub</h1>
+            <p className="text-xs leading-[1.35] text-muted-foreground">
+              Comunicação e tarefas da equipe
+            </p>
+          </span>
         </Link>
 
         <nav className="mt-[18px] flex flex-1 flex-col gap-1 overflow-y-auto">
@@ -130,7 +134,8 @@ export function AppLayout() {
           >
             Menu
           </Button>
-          <div className="text-[15px]">
+          <div className="flex min-w-0 items-center gap-2 text-[15px]">
+            <BrandLogo size={28} />
             <strong>{pageTitle}</strong>
           </div>
         </header>

@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { BrandLogo } from '../../components/BrandLogo'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { Field } from '../../components/Field'
 import { PasswordField } from '../../components/PasswordField'
@@ -35,7 +36,10 @@ export function LoginPage() {
   return (
     <div className="mx-auto max-w-[420px] px-[18px] py-7 pb-[60px]">
       <header className="mb-4">
-        <h1 className="mb-2 text-[28px] font-bold tracking-[-0.02em]">WorkHub</h1>
+        <div className="mb-3 flex items-center gap-3">
+          <BrandLogo size={48} />
+          <h1 className="text-[28px] font-bold tracking-[-0.02em]">WorkHub</h1>
+        </div>
         <p className="leading-[1.45] text-muted-foreground">
           Comunicação e tarefas da equipe, em um só lugar.
         </p>

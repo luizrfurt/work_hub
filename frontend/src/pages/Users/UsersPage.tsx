@@ -167,7 +167,7 @@ export function UsersPage() {
               </Field>
             </div>
             <Button className="w-fit" type="submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Cadastrar usuário'}
+              {saving ? 'Salvando...' : '+ Novo usuário'}
             </Button>
           </form>
         </CardContent>

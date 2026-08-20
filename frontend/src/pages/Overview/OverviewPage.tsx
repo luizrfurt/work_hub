@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getOverview } from '../../api/projects'
-import { BrandLogo } from '../../components/BrandLogo'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import type { Overview } from '../../types'
 import { formatBytes, getErrorMessage, statusTitleClass } from '../../utils/format'
@@ -59,10 +58,7 @@ export function OverviewPage() {
           <p className="mb-1 text-[0.72rem] font-bold tracking-[0.12em] text-primary uppercase">
             Administração
           </p>
-          <div className="mb-1 flex items-center gap-3">
-            <BrandLogo size={40} />
-            <h1 className="text-[1.75rem] font-bold tracking-[-0.02em]">Dashboard</h1>
-          </div>
+          <h1 className="mb-1 text-[1.75rem] font-bold tracking-[-0.02em]">Dashboard</h1>
           <p className="text-muted-foreground">
             Visão geral dos projetos: tarefas ativas, concluídas e o que cada pessoa fez.
           </p>
